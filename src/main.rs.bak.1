@@ -1,0 +1,163 @@
+use raylib::prelude::*;
+
+const WINDOW_W: i32 = 1640;
+const WINDOW_H: i32 = 380;
+const BALL_RADIUS: f32 = 10.0;
+
+// These values are now "per second" rather than "per frame"
+const GRAVITY: f32 = 4000.0;
+const JUMP_FORCE: f32 = -1500.0;
+const MOVE_SPEED: f32 = 10000.0;
+const DRAG_FACTOR: f32 = 0.15;
+const BOUNCE_FACTOR: f32 = 0.89;
+
+struct Ball {
+    pos: Vector2,
+    velocity: Vector2,
+    was_on_ground: bool,
+}
+
+impl Ball {
+    fn new() -> Self {
+        Self {
+            pos: Vector2 {
+                x: (WINDOW_W / 2) as f32,
+                y: (WINDOW_H / 2) as f32,
+            },
+            velocity: Vector2 { x: 0.0, y: 0.0 },
+            was_on_ground: false,
+        }
+    }
+
+    fn update(&mut self, dt: f32) {
+        // Apply Gravity (Velocity changes by acceleration * time)
+        self.velocity.y += GRAVITY * dt;
+
+        // Apply Drag/Friction
+        // We use a lerp-like approach so drag is consistent regardless of FPS
+        self.velocity.x *= f32::powf(DRAG_FACTOR, dt);
+
+        // Update Position (Position changes by velocity * time)
+        self.pos.x += self.velocity.x * dt;
+        self.pos.y += self.velocity.y * dt;
+
+        self.handle_collisions();
+    }
+
+    fn handle_collisions(&mut self) {
+        // Floor Collision
+        if self.pos.y + BALL_RADIUS >= WINDOW_H as f32 {
+            self.pos.y = WINDOW_H as f32 - BALL_RADIUS;
+            self.velocity.y *= -BOUNCE_FACTOR;
+        }
+
+        // Wall Collisions
+        if self.pos.x + BALL_RADIUS >= WINDOW_W as f32 {
+            self.pos.x = WINDOW_W as f32 - BALL_RADIUS;
+            self.velocity.x *= -1.0;
+        } else if self.pos.x - BALL_RADIUS <= 0.0 {
+            self.pos.x = BALL_RADIUS;
+            self.velocity.x *= -1.0;
+        }
+
+        // Top Border
+        if self.pos.y < BALL_RADIUS {
+            self.pos.y = BALL_RADIUS;
+        }
+    }
+
+    fn check_landing(&mut self) -> bool {
+        let is_currently_on_ground = self.pos.y + (BALL_RADIUS * 1.25) >= WINDOW_H as f32;
+        let landed_this_frame = is_currently_on_ground && !self.was_on_ground;
+        self.was_on_ground = is_currently_on_ground;
+        landed_this_frame
+    }
+
+    fn jump(&mut self) {
+        // Only jump if roughly on the bottom half/ground
+        if self.pos.y + BALL_RADIUS >= (WINDOW_H / 2) as f32 {
+            self.velocity.y = JUMP_FORCE;
+        }
+    }
+
+    fn move_left(&mut self, dt: f32) {
+        self.velocity.x -= MOVE_SPEED * dt;
+    }
+    fn move_right(&mut self, dt: f32) {
+        self.velocity.x += MOVE_SPEED * dt;
+    }
+}
+
+struct Game<'a> {
+    ball: Ball,
+    audio_sample: Option<Sound<'a>>,
+}
+
+impl<'a> Game<'a> {
+    fn new(audio_handle: &'a RaylibAudio) -> Self {
+        let path = "assets/water-drops-falling.wav";
+        let sound = audio_handle.new_sound(path).ok();
+
+        Self {
+            ball: Ball::new(),
+            audio_sample: sound,
+        }
+    }
+
+    pub fn update(&mut self, rl: &RaylibHandle) {
+        let dt = rl.get_frame_time();
+        if rl.is_key_pressed(KeyboardKey::KEY_SPACE) {
+            self.ball.jump();
+        }
+        if rl.is_key_down(KeyboardKey::KEY_LEFT) {
+            self.ball.move_left(dt);
+        }
+        if rl.is_key_down(KeyboardKey::KEY_RIGHT) {
+            self.ball.move_right(dt);
+        }
+
+        self.ball.update(dt);
+
+        if self.ball.check_landing() {
+            if let Some(s) = &self.audio_sample {
+                s.play();
+            }
+        }
+    }
+
+    pub fn draw(&self, d: &mut RaylibDrawHandle) {
+        d.draw_circle_v(self.ball.pos, BALL_RADIUS, Color::RED);
+    }
+}
+
+fn main() {
+    let (mut rl, thread) = raylib::init()
+        .size(WINDOW_W, WINDOW_H)
+        .title("rayball")
+        .build();
+
+    let audio = RaylibAudio::init_audio_device();
+
+    let mut game = match &audio {
+        Ok(audio_handle) => Game::new(audio_handle),
+        Err(e) => {
+            println!("Warning: Audio failed to initialize: {e}. Playing in silent mode.");
+            Game {
+                ball: Ball::new(),
+                audio_sample: None,
+            }
+        }
+    };
+
+    // let bg_color = Color::new(40, 44, 51, 255);
+    let bg_color = Color::RAYWHITE;
+    rl.set_target_fps(120);
+
+    while !rl.window_should_close() {
+        game.update(&rl);
+
+        let mut d = rl.begin_drawing(&thread);
+        d.clear_background(bg_color);
+        game.draw(&mut d);
+    }
+}

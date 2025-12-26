@@ -1,0 +1,162 @@
+use raylib::{ffi::Vector2, prelude::*};
+
+const WINDOW_W: i32 = 1640;
+const WINDOW_H: i32 = 980;
+const BALL_RADIUS: i32 = 10;
+const GRAVITY: f32 = 0.9;
+const BOUNCE_FACTOR: f32 = 0.89;
+const DRAG_FACTOR: f32 = 0.99;
+
+struct State {
+    pos: Vector2,
+    velocity: Vector2,
+    was_on_ground: bool,
+}
+
+impl State {
+    fn new() -> State {
+        State {
+            pos: Vector2 {
+                x: (WINDOW_W / 2) as f32,
+                y: (WINDOW_H / 2) as f32,
+            },
+            velocity: Vector2 { x: 0.0, y: 0.0 },
+            was_on_ground: false,
+        }
+    }
+
+    fn update_physics(&mut self) {
+        self.horizontal_movement();
+        self.vertical_movement();
+    }
+
+    fn vertical_movement(&mut self) {
+        self.velocity.y += GRAVITY;
+
+        self.pos.y += self.velocity.y;
+
+        let is_below_ground = self.pos.y as i32 + BALL_RADIUS >= WINDOW_H;
+        if is_below_ground {
+            self.pos.y = (WINDOW_H - BALL_RADIUS) as f32;
+            self.velocity.y *= -1.0;
+
+            // Damping: Reduce the velocity to simulate energy loss
+            self.velocity.y *= BOUNCE_FACTOR;
+        }
+    }
+
+    fn horizontal_movement(&mut self) {
+        self.pos.x += self.velocity.x;
+        self.velocity.x *= DRAG_FACTOR;
+
+        let touched_right_screen = self.pos.x as i32 + BALL_RADIUS >= WINDOW_W;
+        if touched_right_screen {
+            self.pos.x = (WINDOW_W - BALL_RADIUS) as f32;
+            self.velocity.x *= -1.0;
+        }
+
+        let touched_left_screen = self.pos.x as i32 - BALL_RADIUS <= 0;
+        if touched_left_screen {
+            self.pos.x = BALL_RADIUS as f32;
+            self.velocity.x *= -1.0;
+        }
+    }
+
+    fn has_landed(&mut self) -> bool {
+        let is_currently_on_ground =
+            self.pos.y + (BALL_RADIUS + (BALL_RADIUS / 4)) as f32 >= WINDOW_H as f32;
+        let has_landed_this_frame = is_currently_on_ground && !self.was_on_ground;
+        self.was_on_ground = is_currently_on_ground;
+        return has_landed_this_frame;
+    }
+
+    fn jump(&mut self) {
+        const JUMP_FORCE: f32 = -25.0;
+        let on_ground = self.pos.y + (BALL_RADIUS) as f32 >= (WINDOW_H / 2) as f32;
+        if on_ground {
+            self.velocity.y = JUMP_FORCE;
+        }
+    }
+
+    fn go_left(&mut self) {
+        self.velocity.x -= 1.5;
+    }
+
+    fn go_right(&mut self) {
+        self.velocity.x += 1.5;
+    }
+}
+
+struct Game<'a> {
+    state: State,
+    audio: Option<Sound<'a>>,
+}
+
+impl<'a> Game<'_> {
+    fn new(audio: &'a RaylibAudio) -> Game<'a> {
+        let filename = "assets/water-drops-falling.wav";
+        let sound = audio.new_sound(filename);
+
+        let mut audio = None;
+        if let Ok(s) = sound {
+            audio = Some(s);
+        }
+
+        Game {
+            state: State::new(),
+            audio,
+        }
+    }
+
+    pub fn draw_game(&mut self, d: &mut RaylibDrawHandle) {
+        d.draw_circle(
+            self.state.pos.x as i32,
+            self.state.pos.y as i32,
+            BALL_RADIUS as f32,
+            Color::YELLOW,
+        );
+    }
+
+    pub fn game_update(&mut self, rl: &mut RaylibHandle) {
+        if rl.is_key_pressed(KeyboardKey::KEY_SPACE) {
+            self.state.jump();
+        }
+        if rl.is_key_down(KeyboardKey::KEY_LEFT) {
+            self.state.go_left();
+        }
+        if rl.is_key_down(KeyboardKey::KEY_RIGHT) {
+            self.state.go_right();
+        }
+        if self.state.has_landed() {
+            if let Some(a) = &self.audio {
+                a.play();
+            }
+        }
+        self.state.update_physics();
+    }
+}
+
+fn main() {
+    let (mut rl, thread) = raylib::init()
+        .size(WINDOW_W, WINDOW_H)
+        .title("rayball")
+        .build();
+    rl.set_target_fps(60);
+
+    let a = RaylibAudio::init_audio_device().expect("Faild to initalize audio device!!");
+    let mut game = Game::new(&a);
+
+    let bg_color = Color {
+        r: 40,
+        g: 44,
+        b: 51,
+        a: 255,
+    };
+
+    while !rl.window_should_close() {
+        game.game_update(&mut rl);
+        let mut d = rl.begin_drawing(&thread);
+        d.clear_background(bg_color);
+        game.draw_game(&mut d);
+    }
+}
