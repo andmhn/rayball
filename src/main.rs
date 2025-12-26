@@ -124,8 +124,8 @@ impl<'a> Game<'a> {
 
     // TODO: create a helper BOX wrapper with pos and size
     fn check_platform_collision_with_ball(&mut self) {
-        let x = (self.ball.pos.x > self.platform.pos.x)
-            && (self.ball.pos.x < self.platform.pos.x + PLATFORM_W);
+        let x = (self.ball.pos.x + BALL_RADIUS > self.platform.pos.x)
+            && (self.ball.pos.x - BALL_RADIUS < self.platform.pos.x + PLATFORM_W);
         let y = (self.ball.pos.y + BALL_RADIUS >= WINDOW_H - PLATFORM_H)
             && (self.ball.velocity.y > 0.0);
 
