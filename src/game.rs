@@ -1,6 +1,5 @@
 use crate::components::*;
 use crate::constants::VELOCITY;
-use rand::Rng;
 use raylib::prelude::*;
 
 pub struct Game<'a> {
@@ -44,19 +43,11 @@ impl<'a> Game<'a> {
     }
 
     pub fn draw(&self, d: &mut RaylibDrawHandle) {
-        d.draw_rectangle_v(
-            self.platform.pos,
-            rvec2(self.platform.width, self.platform.height),
-            Color::RAYWHITE,
-        );
-        if self.ball.status == Status::Dead {
-            d.draw_circle_v(self.ball.pos, self.ball.radius, Color::YELLOW.alpha(0.5));
-        } else {
-            d.draw_circle_v(self.ball.pos, self.ball.radius, Color::YELLOW);
-        }
+        self.platform.draw(d);
+        self.ball.draw(d);
 
         for p in &self.particles {
-            d.draw_circle_v(p.pos, 2., p.color.alpha(1. * p.life));
+            p.draw(d);
         }
     }
 
@@ -86,29 +77,12 @@ impl<'a> Game<'a> {
             self.ball.velocity.x = (diff / (platform_hb.rect.width / 2.0)) * VELOCITY;
 
             let hit_point = rvec2(self.ball.pos.x, self.platform.pos.y);
-            self.spawn_particles(hit_point);
-        }
-    }
-
-    fn spawn_particles(&mut self, origin: Vector2) {
-        let mut rng = rand::rng();
-
-        for _ in 0..15 {
-            let particle = Particle {
-                color: Color::RAYWHITE,
-                life: 1.0,
-                pos: origin,
-                vel: rvec2(
-                    rng.random_range(-200.0..200.0),
-                    rng.random_range(-400.0..-100.0),
-                ),
-            };
-            self.particles.push(particle);
+            self.particles = Particle::spawn_particles(hit_point);
         }
     }
 
     fn handle_audio(&mut self) {
-        if self.ball.is_dead()
+        if self.ball.is_dying()
             && let Some(s) = &self.audio_sample
         {
             s.play();

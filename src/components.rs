@@ -1,5 +1,6 @@
 use crate::constants::*;
 use crate::physics::HitBox;
+use rand::Rng;
 use raylib::prelude::*;
 
 #[derive(PartialEq)]
@@ -63,8 +64,17 @@ impl Ball {
         hitbox.overlaps_circle(self.pos, BALL_RADIUS)
     }
 
-    pub fn is_dead(&self) -> bool {
+    pub fn is_dying(&self) -> bool {
         (self.status == Status::Dead) && (self.velocity.y < 0.)
+    }
+
+    pub fn draw(&self, d: &mut RaylibDrawHandle) {
+        let color = if self.status == Status::Dead {
+            Color::YELLOW.alpha(0.5)
+        } else {
+            Color::YELLOW
+        };
+        d.draw_circle_v(self.pos, self.radius, color);
     }
 }
 
@@ -102,6 +112,10 @@ impl Platform {
     pub fn hitbox(&self) -> HitBox {
         HitBox::new(self.pos, self.width, self.height)
     }
+
+    pub fn draw(&self, d: &mut RaylibDrawHandle) {
+        d.draw_rectangle_v(self.pos, rvec2(self.width, self.height), Color::RAYWHITE);
+    }
 }
 
 pub struct Particle {
@@ -115,5 +129,28 @@ impl Particle {
     pub fn update(&mut self, dt: f32) {
         self.pos += self.vel * dt;
         self.life -= dt * 2.0; // Fade with time
+    }
+
+    pub fn draw(&self, d: &mut RaylibDrawHandle) {
+        d.draw_circle_v(self.pos, 2., self.color.alpha(self.life));
+    }
+
+    pub fn spawn_particles(origin: Vector2) -> Vec<Particle> {
+        let mut particles = Vec::new();
+        let mut rng = rand::rng();
+
+        for _ in 0..15 {
+            let particle = Particle {
+                color: Color::RAYWHITE,
+                life: 1.0,
+                pos: origin,
+                vel: rvec2(
+                    rng.random_range(-200.0..200.0),
+                    rng.random_range(-400.0..-100.0),
+                ),
+            };
+            particles.push(particle);
+        }
+        particles
     }
 }
