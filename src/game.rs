@@ -48,12 +48,17 @@ impl<'a> Game<'a> {
     }
 
     pub fn draw(&self, d: &mut RaylibDrawHandle) {
+        self.draw_ball_lives(d);
         self.platform.draw(d);
         self.ball.draw(d, Color::YELLOW);
 
         for p in &self.particles {
             p.draw(d);
         }
+        self.draw_info_text(d);
+    }
+
+    fn draw_info_text(&self, d: &mut RaylibDrawHandle) {
         match self.ball.status {
             Status::Start => {
                 draw_text_center_x(d, "PRESS SPACE TO LAUNCH", INFO_POS_Y, 20, Color::GRAY)
@@ -67,11 +72,21 @@ impl<'a> Game<'a> {
             }
             _ => {}
         }
-        let text = format!("lives: {}", self.lives);
-        d.draw_text(text.as_str(), 10, 10, 20, Color::GRAY);
+    }
 
+    fn draw_ball_lives(&self, d: &mut RaylibDrawHandle) {
         for pos in &self.dead_balls_pos {
-            d.draw_circle_v(pos, self.ball.radius, Color::RAYWHITE.alpha(0.3));
+            d.draw_circle_v(pos, self.ball.radius, Color::RAYWHITE.alpha(0.2));
+        }
+
+        let spacing = self.ball.radius * 2.5;
+        let margin = 30.;
+        for i in 1..self.lives {
+            let pos = Vector2 {
+                x: margin + ((i as f32 - 1.) * spacing),
+                y: margin,
+            };
+            d.draw_circle_v(pos, self.ball.radius, Color::RAYWHITE.alpha(0.2));
         }
     }
 
