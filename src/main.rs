@@ -107,21 +107,17 @@ struct Game<'a> {
 }
 
 impl<'a> Game<'a> {
-    fn new() -> Self {
+    fn new(audio_handle: Option<&'a RaylibAudio>) -> Self {
+        let path = "assets/dropped.wav";
+        let sound = audio_handle.and_then(|a| a.new_sound(path).ok());
+
         let mut game = Self {
             ball: Ball::new(),
             platform: Platform::new(),
-            audio_sample: None,
+            audio_sample: sound,
         };
-        game.place_ball_on_platform();
-        game
-    }
 
-    fn new_with_audio(audio_handle: &'a RaylibAudio) -> Self {
-        let path = "assets/dropped.wav";
-        let sound = audio_handle.new_sound(path).ok();
-        let mut game = Game::new();
-        game.audio_sample = sound;
+        game.place_ball_on_platform();
         game
     }
 
@@ -208,13 +204,7 @@ fn main() {
 
     let audio = RaylibAudio::init_audio_device();
 
-    let mut game = match &audio {
-        Ok(audio_handle) => Game::new_with_audio(audio_handle),
-        Err(e) => {
-            println!("Warning: Audio failed to initialize: {e}. Playing in silent mode.");
-            Game::new()
-        }
-    };
+    let mut game = Game::new(audio.as_ref().ok());
 
     rl.set_target_fps(120);
 
