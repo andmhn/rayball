@@ -69,7 +69,7 @@ impl Ball {
 }
 
 const PLATFORM_W: f32 = 300.;
-const PLATFORM_H: f32 = 10.;
+const PLATFORM_H: f32 = BALL_RADIUS;
 
 struct Platform {
     pos: Vector2,
@@ -151,6 +151,8 @@ impl<'a> Game<'a> {
 
     pub fn update(&mut self, rl: &RaylibHandle) {
         let dt = rl.get_frame_time();
+        self.check_platform_collision_with_ball();
+        self.ball.update(dt);
 
         if rl.is_key_pressed(KeyboardKey::KEY_SPACE) && self.ball.status == Status::Start {
             self.ball.velocity.y = VELOCITY;
@@ -174,15 +176,12 @@ impl<'a> Game<'a> {
             }
         }
 
-        self.ball.update(dt);
-
         if self.ball.check_falling()
             && let Some(s) = &self.audio_sample
         {
             s.play();
             self.ball.pause();
         }
-        self.check_platform_collision_with_ball();
     }
 
     pub fn draw(&self, d: &mut RaylibDrawHandle) {
