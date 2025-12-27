@@ -4,11 +4,19 @@ const WINDOW_W: f32 = 900.;
 const WINDOW_H: f32 = 600.;
 const BALL_RADIUS: f32 = 20.0;
 const VELOCITY: f32 = 900.0;
+const BG_COLOR: Color = Color::new(23, 25, 29, 255);
+
+#[derive(PartialEq)]
+enum Status {
+    Start,
+    Running,
+    Dead,
+}
 
 struct Ball {
     pos: Vector2,
     velocity: Vector2,
-    dead: bool,
+    status: Status,
 }
 
 impl Ball {
@@ -18,26 +26,14 @@ impl Ball {
                 x: WINDOW_W / 2.,
                 y: WINDOW_H / 2.,
             },
-            velocity: Vector2 {
-                x: 0.0,
-                y: VELOCITY,
-            },
-            dead: false,
+            velocity: Vector2 { x: 0.0, y: 0.0 },
+            status: Status::Start,
         }
     }
 
     fn pause(&mut self) {
         self.velocity.x = 0.;
         self.velocity.y = 0.;
-    }
-
-    fn restart(&mut self, pos: Vector2) {
-        self.dead = false;
-        self.pos = pos;
-        self.velocity = Vector2 {
-            x: 0.0,
-            y: VELOCITY,
-        };
     }
 
     fn update(&mut self, dt: f32) {
@@ -48,7 +44,7 @@ impl Ball {
         if touched_down {
             self.pos.y = WINDOW_H - BALL_RADIUS;
             self.velocity.y *= -1.0;
-            self.dead = true;
+            self.status = Status::Dead;
         }
         let touched_up = self.pos.y < BALL_RADIUS && self.velocity.y < 0.0;
         if touched_up {
@@ -68,7 +64,7 @@ impl Ball {
     }
 
     fn check_falling(&self) -> bool {
-        self.dead && self.velocity.y < 0.
+        (self.status == Status::Dead) && (self.velocity.y < 0.)
     }
 }
 
@@ -111,15 +107,27 @@ struct Game<'a> {
 }
 
 impl<'a> Game<'a> {
-    fn new(audio_handle: &'a RaylibAudio) -> Self {
-        let path = "assets/dropped.wav";
-        let sound = audio_handle.new_sound(path).ok();
-
-        Self {
+    fn new() -> Self {
+        let mut game = Self {
             ball: Ball::new(),
             platform: Platform::new(),
-            audio_sample: sound,
-        }
+            audio_sample: None,
+        };
+        game.place_ball_on_platform();
+        game
+    }
+
+    fn new_with_audio(audio_handle: &'a RaylibAudio) -> Self {
+        let path = "assets/dropped.wav";
+        let sound = audio_handle.new_sound(path).ok();
+        let mut game = Game::new();
+        game.audio_sample = sound;
+        game
+    }
+
+    fn place_ball_on_platform(&mut self) {
+        self.ball.pos.x = self.platform.pos.x + PLATFORM_W / 2.;
+        self.ball.pos.y = WINDOW_H - PLATFORM_H - BALL_RADIUS;
     }
 
     // TODO: create a helper BOX wrapper with pos and size
@@ -143,26 +151,36 @@ impl<'a> Game<'a> {
 
     pub fn update(&mut self, rl: &RaylibHandle) {
         let dt = rl.get_frame_time();
-        if rl.is_key_pressed(KeyboardKey::KEY_SPACE) && self.ball.dead {
-            self.ball.restart(Vector2 {
-                x: WINDOW_W / 2.,
-                y: WINDOW_H / 2.,
-            });
+
+        if rl.is_key_pressed(KeyboardKey::KEY_SPACE) && self.ball.status == Status::Start {
+            self.ball.velocity.y = VELOCITY;
+            self.ball.status = Status::Running;
         }
+        if rl.is_key_pressed(KeyboardKey::KEY_SPACE) && self.ball.status == Status::Dead {
+            self.place_ball_on_platform();
+            self.ball.status = Status::Start;
+        }
+
         if rl.is_key_down(KeyboardKey::KEY_LEFT) {
             self.platform.move_left(dt);
+            if self.ball.status == Status::Start {
+                self.place_ball_on_platform();
+            }
         }
         if rl.is_key_down(KeyboardKey::KEY_RIGHT) {
             self.platform.move_right(dt);
+            if self.ball.status == Status::Start {
+                self.place_ball_on_platform();
+            }
         }
 
         self.ball.update(dt);
 
-        if self.ball.check_falling() {
-            if let Some(s) = &self.audio_sample {
-                s.play();
-                self.ball.pause();
-            }
+        if self.ball.check_falling()
+            && let Some(s) = &self.audio_sample
+        {
+            s.play();
+            self.ball.pause();
         }
         self.check_platform_collision_with_ball();
     }
@@ -177,6 +195,9 @@ impl<'a> Game<'a> {
             Color::RAYWHITE,
         );
         d.draw_circle_v(self.ball.pos, BALL_RADIUS, Color::YELLOW);
+        if self.ball.status == Status::Dead {
+            d.draw_circle_v(self.ball.pos, BALL_RADIUS - 3., BG_COLOR);
+        }
     }
 }
 
@@ -189,25 +210,20 @@ fn main() {
     let audio = RaylibAudio::init_audio_device();
 
     let mut game = match &audio {
-        Ok(audio_handle) => Game::new(audio_handle),
+        Ok(audio_handle) => Game::new_with_audio(audio_handle),
         Err(e) => {
             println!("Warning: Audio failed to initialize: {e}. Playing in silent mode.");
-            Game {
-                ball: Ball::new(),
-                platform: Platform::new(),
-                audio_sample: None,
-            }
+            Game::new()
         }
     };
 
-    let bg_color = Color::new(23, 25, 29, 255);
     rl.set_target_fps(120);
 
     while !rl.window_should_close() {
         game.update(&rl);
 
         let mut d = rl.begin_drawing(&thread);
-        d.clear_background(bg_color);
+        d.clear_background(BG_COLOR);
         game.draw(&mut d);
     }
 }
