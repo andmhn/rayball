@@ -1,4 +1,5 @@
 use crate::constants::*;
+use crate::game::{GameEvent, SoundManager};
 use crate::physics::HitBox;
 use rand::Rng;
 use raylib::prelude::*;
@@ -27,21 +28,31 @@ impl Ball {
         }
     }
 
-    pub fn pause(&mut self) {
-        self.velocity = Vector2::zero();
-    }
-
-    pub fn update(&mut self, dt: f32) {
+    pub fn update(&mut self, dt: f32) -> Option<GameEvent> {
         self.pos += self.velocity * dt;
-        self.handle_wall_collisions();
+        self.handle_wall_collisions()
     }
 
-    fn handle_wall_collisions(&mut self) {
+    fn die(&mut self) {
+        if self.status != Status::Dead {
+            self.status = Status::Dead;
+            self.velocity = Vector2::zero();
+        }
+    }
+
+    pub fn reset(&mut self, platform_x: f32, platform_y: f32) {
+        self.status = Status::Start;
+        self.velocity = Vector2::zero();
+        self.pos = rvec2(platform_x, platform_y - self.radius);
+    }
+
+    fn handle_wall_collisions(&mut self) -> Option<GameEvent> {
+        let mut event = None;
         let touched_down = (self.pos.y + self.radius >= WINDOW_H) && (self.velocity.y > 0.0);
         if touched_down {
             self.pos.y = WINDOW_H - self.radius;
-            self.velocity.y *= -1.0;
-            self.status = Status::Dead;
+            self.die();
+            event = Some(GameEvent::BallDropped);
         }
         let touched_up = self.pos.y < self.radius && self.velocity.y < 0.0;
         if touched_up {
@@ -58,14 +69,11 @@ impl Ball {
             self.pos.x = self.radius;
             self.velocity.x *= -1.0;
         }
+        event
     }
 
     pub fn collides_with_hitbox(&self, hitbox: &HitBox) -> bool {
         hitbox.overlaps_circle(self.pos, BALL_RADIUS)
-    }
-
-    pub fn is_dying(&self) -> bool {
-        (self.status == Status::Dead) && (self.velocity.y < 0.)
     }
 
     pub fn draw(&self, d: &mut RaylibDrawHandle) {

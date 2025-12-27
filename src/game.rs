@@ -2,23 +2,26 @@ use crate::components::*;
 use crate::constants::VELOCITY;
 use raylib::prelude::*;
 
+pub enum GameEvent {
+    BallHitWall,
+    BallDropped,
+}
+
 pub struct Game<'a> {
     ball: Ball,
     platform: Platform,
-    audio_sample: Option<Sound<'a>>,
     particles: Vec<Particle>,
+    sounds: SoundManager<'a>,
 }
 
 impl<'a> Game<'a> {
     pub fn new(audio_handle: Option<&'a RaylibAudio>) -> Self {
-        let path = "assets/dropped.wav";
-        let sound = audio_handle.and_then(|a| a.new_sound(path).ok());
-
+        let sounds = SoundManager::new(audio_handle);
         let mut game = Self {
             ball: Ball::new(),
             platform: Platform::new(),
-            audio_sample: sound,
             particles: Vec::new(),
+            sounds,
         };
 
         game.place_ball_on_platform();
@@ -29,7 +32,6 @@ impl<'a> Game<'a> {
         let dt = rl.get_frame_time();
         self.handle_input(rl, dt);
         self.physics_step(dt);
-        self.handle_audio();
         self.cleanup_entities();
     }
 
@@ -49,12 +51,25 @@ impl<'a> Game<'a> {
         for p in &self.particles {
             p.draw(d);
         }
+        match self.ball.status {
+            Status::Start => d.draw_text("PRESS SPACE TO LAUNCH", 300, 400, 20, Color::GRAY),
+            Status::Dead => d.draw_text("GAME OVER - SPACE TO RESET", 280, 400, 20, Color::RED),
+            _ => {}
+        }
     }
 
     fn handle_collision(&mut self, dt: f32) {
         if self.ball.status == Status::Running {
+            if let Some(event) = self.ball.update(dt) {
+                match event {
+                    GameEvent::BallDropped => {
+                        self.sounds.play_drop();
+                    }
+                    _ => {}
+                }
+            }
+
             self.check_platform_collision_with_ball();
-            self.ball.update(dt);
         }
     }
 
@@ -77,40 +92,64 @@ impl<'a> Game<'a> {
             self.ball.velocity.x = (diff / (platform_hb.rect.width / 2.0)) * VELOCITY;
 
             let hit_point = rvec2(self.ball.pos.x, self.platform.pos.y);
-            self.particles = Particle::spawn_particles(hit_point);
-        }
-    }
-
-    fn handle_audio(&mut self) {
-        if self.ball.is_dying()
-            && let Some(s) = &self.audio_sample
-        {
-            s.play();
-            self.ball.pause();
+            self.particles.extend(Particle::spawn_particles(hit_point));
         }
     }
 
     fn handle_input(&mut self, rl: &RaylibHandle, dt: f32) {
-        if rl.is_key_pressed(KeyboardKey::KEY_SPACE) && self.ball.status == Status::Start {
-            self.ball.velocity.y = -VELOCITY;
-            self.ball.status = Status::Running;
-        }
-        if rl.is_key_pressed(KeyboardKey::KEY_SPACE) && self.ball.status == Status::Dead {
-            self.place_ball_on_platform();
-            self.ball.status = Status::Start;
-        }
-
         if rl.is_key_down(KeyboardKey::KEY_LEFT) {
             self.platform.move_left(dt);
-            if self.ball.status == Status::Start {
-                self.place_ball_on_platform();
-            }
         }
         if rl.is_key_down(KeyboardKey::KEY_RIGHT) {
             self.platform.move_right(dt);
-            if self.ball.status == Status::Start {
+        }
+        match self.ball.status {
+            Status::Start => {
                 self.place_ball_on_platform();
+                if rl.is_key_pressed(KeyboardKey::KEY_SPACE) {
+                    self.ball.velocity.y = -VELOCITY;
+                    self.ball.status = Status::Running;
+                }
             }
+            Status::Dead => {
+                if rl.is_key_pressed(KeyboardKey::KEY_SPACE) {
+                    self.ball
+                        .reset(self.platform.hitbox().center_x(), self.platform.pos.y);
+                }
+            }
+            Status::Running => {}
+        }
+    }
+}
+
+pub struct SoundManager<'a> {
+    pub drop_sound: Option<Sound<'a>>,
+    pub bounce_sound: Option<Sound<'a>>,
+}
+
+impl<'a> SoundManager<'a> {
+    pub fn new(audio_handle: Option<&'a RaylibAudio>) -> Self {
+        match audio_handle {
+            Some(h) => Self {
+                drop_sound: h.new_sound("assets/dropped.wav").ok(),
+                bounce_sound: h.new_sound("assets/bounce.wav").ok(),
+            },
+            None => Self {
+                drop_sound: None,
+                bounce_sound: None,
+            },
+        }
+    }
+
+    pub fn play_drop(&self) {
+        if let Some(s) = &self.drop_sound {
+            s.play();
+        }
+    }
+
+    pub fn play_bounce(&self) {
+        if let Some(s) = &self.bounce_sound {
+            s.play();
         }
     }
 }
