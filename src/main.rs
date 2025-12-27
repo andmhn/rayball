@@ -4,7 +4,7 @@ mod game;
 mod physics;
 
 use constants::*;
-use game::Game;
+use game::{Game, SoundManager};
 use raylib::prelude::*;
 
 fn main() {
@@ -14,8 +14,9 @@ fn main() {
         .build();
 
     let audio = RaylibAudio::init_audio_device();
+    let sounds = SoundManager::new(audio.as_ref().ok());
 
-    let mut game = Game::new(audio.as_ref().ok());
+    let mut game = Game::new(sounds);
 
     rl.set_target_fps(120);
 

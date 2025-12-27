@@ -9,3 +9,5 @@ pub const BALL_RADIUS: f32 = 20.0;
 
 pub const PLATFORM_W: f32 = 300.;
 pub const PLATFORM_H: f32 = BALL_RADIUS;
+
+pub const MAX_LIVES: u8 = 3;

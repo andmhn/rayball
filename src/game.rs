@@ -1,5 +1,5 @@
 use crate::components::*;
-use crate::constants::VELOCITY;
+use crate::constants::{MAX_LIVES, VELOCITY};
 use raylib::prelude::*;
 
 pub enum GameEvent {
@@ -12,16 +12,19 @@ pub struct Game<'a> {
     platform: Platform,
     particles: Vec<Particle>,
     sounds: SoundManager<'a>,
+    lives: u8,
+    dead_balls_pos: Vec<Vector2>,
 }
 
 impl<'a> Game<'a> {
-    pub fn new(audio_handle: Option<&'a RaylibAudio>) -> Self {
-        let sounds = SoundManager::new(audio_handle);
+    pub fn new(sounds: SoundManager<'a>) -> Self {
         let mut game = Self {
             ball: Ball::new(),
             platform: Platform::new(),
             particles: Vec::new(),
             sounds,
+            lives: MAX_LIVES,
+            dead_balls_pos: Vec::new(),
         };
 
         game.place_ball_on_platform();
@@ -46,31 +49,50 @@ impl<'a> Game<'a> {
 
     pub fn draw(&self, d: &mut RaylibDrawHandle) {
         self.platform.draw(d);
-        self.ball.draw(d);
+        self.ball.draw(d, Color::YELLOW);
 
         for p in &self.particles {
             p.draw(d);
         }
         match self.ball.status {
             Status::Start => d.draw_text("PRESS SPACE TO LAUNCH", 300, 400, 20, Color::GRAY),
-            Status::Dead => d.draw_text("GAME OVER - SPACE TO RESET", 280, 400, 20, Color::RED),
+            Status::Dead => {
+                if self.lives == 0 {
+                    d.draw_text("GAME OVER - SPACE TO RESET", 280, 400, 20, Color::RED)
+                }
+            }
             _ => {}
+        }
+        let text = format!("lives: {}", self.lives);
+        d.draw_text(text.as_str(), 10, 10, 20, Color::GRAY);
+
+        for pos in &self.dead_balls_pos {
+            d.draw_circle_v(pos, self.ball.radius, Color::RAYWHITE.alpha(0.3));
         }
     }
 
     fn handle_collision(&mut self, dt: f32) {
-        if self.ball.status == Status::Running {
-            if let Some(event) = self.ball.update(dt) {
-                match event {
-                    GameEvent::BallDropped => {
+        if self.ball.status != Status::Running {
+            return;
+        }
+
+        for event in self.ball.update(dt) {
+            match event {
+                GameEvent::BallDropped => {
+                    self.dead_balls_pos.push(self.ball.pos);
+                    self.lives -= 1;
+                    if self.lives > 0 {
+                        self.ball
+                            .reset(self.platform.hitbox().center_x(), self.platform.pos.y);
                         self.sounds.play_drop();
                     }
-                    _ => {}
+                }
+                GameEvent::BallHitWall => {
+                    self.sounds.play_bounce();
                 }
             }
-
-            self.check_platform_collision_with_ball();
         }
+        self.check_platform_collision_with_ball();
     }
 
     fn place_ball_on_platform(&mut self) {
@@ -93,6 +115,7 @@ impl<'a> Game<'a> {
 
             let hit_point = rvec2(self.ball.pos.x, self.platform.pos.y);
             self.particles.extend(Particle::spawn_particles(hit_point));
+            self.sounds.play_bounce();
         }
     }
 
@@ -112,7 +135,9 @@ impl<'a> Game<'a> {
                 }
             }
             Status::Dead => {
-                if rl.is_key_pressed(KeyboardKey::KEY_SPACE) {
+                if rl.is_key_pressed(KeyboardKey::KEY_SPACE) && self.lives == 0 {
+                    self.lives = MAX_LIVES;
+                    self.dead_balls_pos = Vec::new();
                     self.ball
                         .reset(self.platform.hitbox().center_x(), self.platform.pos.y);
                 }
