@@ -1,4 +1,5 @@
 use crate::constants::*;
+use crate::physics::HitBox;
 use raylib::prelude::*;
 
 #[derive(PartialEq)]
@@ -12,17 +13,16 @@ pub struct Ball {
     pub pos: Vector2,
     pub velocity: Vector2,
     pub status: Status,
+    pub radius: f32,
 }
 
 impl Ball {
     pub fn new() -> Self {
         Ball {
-            pos: Vector2 {
-                x: WINDOW_W / 2.,
-                y: WINDOW_H / 2.,
-            },
+            pos: Vector2::zero(),
             velocity: Vector2::zero(),
             status: Status::Start,
+            radius: BALL_RADIUS,
         }
     }
 
@@ -36,25 +36,25 @@ impl Ball {
     }
 
     fn handle_wall_collisions(&mut self) {
-        let touched_down = (self.pos.y + BALL_RADIUS >= WINDOW_H) && (self.velocity.y > 0.0);
+        let touched_down = (self.pos.y + self.radius >= WINDOW_H) && (self.velocity.y > 0.0);
         if touched_down {
-            self.pos.y = WINDOW_H - BALL_RADIUS;
+            self.pos.y = WINDOW_H - self.radius;
             self.velocity.y *= -1.0;
             self.status = Status::Dead;
         }
-        let touched_up = self.pos.y < BALL_RADIUS && self.velocity.y < 0.0;
+        let touched_up = self.pos.y < self.radius && self.velocity.y < 0.0;
         if touched_up {
-            self.pos.y = BALL_RADIUS;
+            self.pos.y = self.radius;
             self.velocity.y *= -1.0;
         }
-        let touched_right = self.pos.x + BALL_RADIUS >= WINDOW_W && self.velocity.x > 0.0;
+        let touched_right = self.pos.x + self.radius >= WINDOW_W && self.velocity.x > 0.0;
         if touched_right {
-            self.pos.x = WINDOW_W - BALL_RADIUS;
+            self.pos.x = WINDOW_W - self.radius;
             self.velocity.x *= -1.0;
         }
-        let touched_left = self.pos.x < BALL_RADIUS && self.velocity.x < 0.0;
+        let touched_left = self.pos.x < self.radius && self.velocity.x < 0.0;
         if touched_left {
-            self.pos.x = BALL_RADIUS;
+            self.pos.x = self.radius;
             self.velocity.x *= -1.0;
         }
     }
@@ -62,20 +62,28 @@ impl Ball {
     pub fn is_dead(&self) -> bool {
         (self.status == Status::Dead) && (self.velocity.y < 0.)
     }
+
+    pub fn bounds(&self) -> Rectangle {
+        let size = self.radius * 2.0 * 0.9;
+        HitBox::centered_on(self.pos, size, size)
+    }
 }
 
 pub struct Platform {
     pub pos: Vector2,
+    pub width: f32,
+    pub height: f32,
 }
 
 impl Platform {
     pub fn new() -> Self {
-        Platform {
-            pos: Vector2 {
-                x: (WINDOW_W - PLATFORM_W) / 2.,
-                y: WINDOW_H - PLATFORM_H,
-            },
-        }
+        let width = PLATFORM_W;
+        let height = PLATFORM_H;
+        let pos = Vector2 {
+            x: (WINDOW_W - width) / 2.,
+            y: WINDOW_H - height,
+        };
+        Platform { pos, width, height }
     }
 
     pub fn move_left(&mut self, dt: f32) {
@@ -87,8 +95,12 @@ impl Platform {
 
     pub fn move_right(&mut self, dt: f32) {
         self.pos.x += 1000. * dt;
-        if self.pos.x + PLATFORM_W > WINDOW_W {
-            self.pos.x = WINDOW_W - PLATFORM_W;
+        if self.pos.x + self.width > WINDOW_W {
+            self.pos.x = WINDOW_W - self.width;
         }
+    }
+
+    pub fn hitbox(&self) -> HitBox {
+        HitBox::new(self.pos, self.width, self.height)
     }
 }

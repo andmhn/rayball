@@ -1,5 +1,5 @@
 use crate::components::*;
-use crate::constants::*;
+use crate::constants::{VELOCITY, WINDOW_H};
 use raylib::prelude::*;
 
 pub struct Game<'a> {
@@ -25,8 +25,7 @@ impl<'a> Game<'a> {
 
     pub fn update(&mut self, rl: &RaylibHandle) {
         let dt = rl.get_frame_time();
-        self.check_platform_collision_with_ball();
-        self.ball.update(dt);
+        self.handle_collision(dt);
         self.handle_input(rl, dt);
         self.handle_audio();
     }
@@ -34,39 +33,39 @@ impl<'a> Game<'a> {
     pub fn draw(&self, d: &mut RaylibDrawHandle) {
         d.draw_rectangle_v(
             self.platform.pos,
-            Vector2 {
-                x: PLATFORM_W,
-                y: PLATFORM_H,
-            },
+            rvec2(self.platform.width, self.platform.height),
             Color::RAYWHITE,
         );
-        d.draw_circle_v(self.ball.pos, BALL_RADIUS, Color::YELLOW);
         if self.ball.status == Status::Dead {
-            d.draw_circle_v(self.ball.pos, BALL_RADIUS - 3., BG_COLOR);
+            d.draw_circle_v(self.ball.pos, self.ball.radius, Color::YELLOW.alpha(0.5));
+        } else {
+            d.draw_circle_v(self.ball.pos, self.ball.radius, Color::YELLOW);
+        }
+    }
+
+    fn handle_collision(&mut self, dt: f32) {
+        if self.ball.status == Status::Running {
+            self.ball.update(dt);
+            self.check_platform_collision_with_ball();
         }
     }
 
     fn place_ball_on_platform(&mut self) {
-        self.ball.pos.x = self.platform.pos.x + PLATFORM_W / 2.;
-        self.ball.pos.y = WINDOW_H - PLATFORM_H - BALL_RADIUS;
+        self.ball.pos.x = self.platform.pos.x + self.platform.width / 2.;
+        self.ball.pos.y = WINDOW_H - self.platform.height - self.ball.radius;
     }
 
-    // TODO: create a helper BOX wrapper with pos and size
     fn check_platform_collision_with_ball(&mut self) {
-        let x = (self.ball.pos.x + BALL_RADIUS > self.platform.pos.x)
-            && (self.ball.pos.x - BALL_RADIUS < self.platform.pos.x + PLATFORM_W);
-        let y = (self.ball.pos.y + BALL_RADIUS >= WINDOW_H - PLATFORM_H)
-            && (self.ball.velocity.y > 0.0);
+        let platform_hb = self.platform.hitbox();
+        let ball_bounds = self.ball.bounds();
 
-        if x && y {
-            self.ball.pos.y = WINDOW_H - (BALL_RADIUS + PLATFORM_H);
+        if platform_hb.overlaps(&ball_bounds) && self.ball.velocity.y > 0.0 {
+            self.ball.pos.y = platform_hb.rect.y - self.ball.radius;
             self.ball.velocity.y *= -1.0;
 
-            // difference of ball's x from the center of platform
-            let platform_center = self.platform.pos.x + (PLATFORM_W / 2.);
-            let diff: f32 = self.ball.pos.x - platform_center;
-
-            self.ball.velocity.x = (diff / (PLATFORM_W / 2.0)) * VELOCITY;
+            // Calculate the bounce angle
+            let diff = self.ball.pos.x - platform_hb.center_x();
+            self.ball.velocity.x = (diff / (platform_hb.rect.width / 2.0)) * VELOCITY;
         }
     }
 

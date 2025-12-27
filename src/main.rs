@@ -1,6 +1,7 @@
 mod components;
 mod constants;
 mod game;
+mod physics;
 
 use constants::*;
 use game::Game;
