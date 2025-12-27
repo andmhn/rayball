@@ -1,5 +1,5 @@
 use crate::components::*;
-use crate::constants::{MAX_LIVES, VELOCITY};
+use crate::constants::{INFO_POS_Y, MAX_LIVES, VELOCITY, WINDOW_W};
 use raylib::prelude::*;
 
 pub enum GameEvent {
@@ -55,10 +55,14 @@ impl<'a> Game<'a> {
             p.draw(d);
         }
         match self.ball.status {
-            Status::Start => d.draw_text("PRESS SPACE TO LAUNCH", 300, 400, 20, Color::GRAY),
+            Status::Start => {
+                draw_text_center_x(d, "PRESS SPACE TO LAUNCH", INFO_POS_Y, 20, Color::GRAY)
+            }
             Status::Dead => {
                 if self.lives == 0 {
-                    d.draw_text("GAME OVER - SPACE TO RESET", 280, 400, 20, Color::RED)
+                    draw_text_center_x(d, "GAME OVER", INFO_POS_Y - 100, 40, Color::RED);
+                    let text = "PRESS SPACE TO RESTART";
+                    draw_text_center_x(d, text, INFO_POS_Y, 20, Color::GRAY);
                 }
             }
             _ => {}
@@ -177,4 +181,9 @@ impl<'a> SoundManager<'a> {
             s.play();
         }
     }
+}
+
+fn draw_text_center_x(d: &mut RaylibDrawHandle, text: &str, y: i32, font_size: i32, color: Color) {
+    let x = (WINDOW_W / 2.) as i32 - d.measure_text(text, font_size) / 2;
+    d.draw_text(text, x, y, font_size, color);
 }
