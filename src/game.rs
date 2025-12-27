@@ -28,11 +28,19 @@ impl<'a> Game<'a> {
 
     pub fn update(&mut self, rl: &RaylibHandle) {
         let dt = rl.get_frame_time();
-        self.handle_collision(dt);
         self.handle_input(rl, dt);
-        self.particles.iter_mut().for_each(|p| p.update(dt));
-        self.particles.retain(|p| p.life > 0.0);
+        self.physics_step(dt);
         self.handle_audio();
+        self.cleanup_entities();
+    }
+
+    fn physics_step(&mut self, dt: f32) {
+        self.handle_collision(dt);
+        self.particles.iter_mut().for_each(|p| p.update(dt));
+    }
+
+    fn cleanup_entities(&mut self) {
+        self.particles.retain(|p| p.life > 0.0);
     }
 
     pub fn draw(&self, d: &mut RaylibDrawHandle) {
