@@ -1,11 +1,13 @@
 use crate::components::*;
-use crate::constants::{VELOCITY, WINDOW_H};
+use crate::constants::VELOCITY;
+use rand::Rng;
 use raylib::prelude::*;
 
 pub struct Game<'a> {
     ball: Ball,
     platform: Platform,
     audio_sample: Option<Sound<'a>>,
+    particles: Vec<Particle>,
 }
 
 impl<'a> Game<'a> {
@@ -17,6 +19,7 @@ impl<'a> Game<'a> {
             ball: Ball::new(),
             platform: Platform::new(),
             audio_sample: sound,
+            particles: Vec::new(),
         };
 
         game.place_ball_on_platform();
@@ -27,6 +30,8 @@ impl<'a> Game<'a> {
         let dt = rl.get_frame_time();
         self.handle_collision(dt);
         self.handle_input(rl, dt);
+        self.particles.iter_mut().for_each(|p| p.update(dt));
+        self.particles.retain(|p| p.life > 0.0);
         self.handle_audio();
     }
 
@@ -41,31 +46,56 @@ impl<'a> Game<'a> {
         } else {
             d.draw_circle_v(self.ball.pos, self.ball.radius, Color::YELLOW);
         }
+
+        for p in &self.particles {
+            d.draw_circle_v(p.pos, 2., p.color.alpha(1. * p.life));
+        }
     }
 
     fn handle_collision(&mut self, dt: f32) {
         if self.ball.status == Status::Running {
-            self.ball.update(dt);
             self.check_platform_collision_with_ball();
+            self.ball.update(dt);
         }
     }
 
     fn place_ball_on_platform(&mut self) {
-        self.ball.pos.x = self.platform.pos.x + self.platform.width / 2.;
-        self.ball.pos.y = WINDOW_H - self.platform.height - self.ball.radius;
+        self.ball.pos.x = self.platform.hitbox().center_x();
+        self.ball.pos.y = self.platform.pos.y - self.ball.radius;
     }
 
     fn check_platform_collision_with_ball(&mut self) {
         let platform_hb = self.platform.hitbox();
-        let ball_bounds = self.ball.bounds();
+        let overlaps = self.ball.collides_with_hitbox(&platform_hb);
+        let moving_down = self.ball.velocity.y > 0.0;
 
-        if platform_hb.overlaps(&ball_bounds) && self.ball.velocity.y > 0.0 {
+        if overlaps && moving_down {
             self.ball.pos.y = platform_hb.rect.y - self.ball.radius;
             self.ball.velocity.y *= -1.0;
 
             // Calculate the bounce angle
             let diff = self.ball.pos.x - platform_hb.center_x();
             self.ball.velocity.x = (diff / (platform_hb.rect.width / 2.0)) * VELOCITY;
+
+            let hit_point = rvec2(self.ball.pos.x, self.platform.pos.y);
+            self.spawn_particles(hit_point);
+        }
+    }
+
+    fn spawn_particles(&mut self, origin: Vector2) {
+        let mut rng = rand::rng();
+
+        for _ in 0..15 {
+            let particle = Particle {
+                color: Color::RAYWHITE,
+                life: 1.0,
+                pos: origin,
+                vel: rvec2(
+                    rng.random_range(-200.0..200.0),
+                    rng.random_range(-400.0..-100.0),
+                ),
+            };
+            self.particles.push(particle);
         }
     }
 
@@ -80,7 +110,7 @@ impl<'a> Game<'a> {
 
     fn handle_input(&mut self, rl: &RaylibHandle, dt: f32) {
         if rl.is_key_pressed(KeyboardKey::KEY_SPACE) && self.ball.status == Status::Start {
-            self.ball.velocity.y = VELOCITY;
+            self.ball.velocity.y = -VELOCITY;
             self.ball.status = Status::Running;
         }
         if rl.is_key_pressed(KeyboardKey::KEY_SPACE) && self.ball.status == Status::Dead {

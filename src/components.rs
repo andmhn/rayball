@@ -59,13 +59,12 @@ impl Ball {
         }
     }
 
-    pub fn is_dead(&self) -> bool {
-        (self.status == Status::Dead) && (self.velocity.y < 0.)
+    pub fn collides_with_hitbox(&self, hitbox: &HitBox) -> bool {
+        hitbox.overlaps_circle(self.pos, BALL_RADIUS)
     }
 
-    pub fn bounds(&self) -> Rectangle {
-        let size = self.radius * 2.0 * 0.9;
-        HitBox::centered_on(self.pos, size, size)
+    pub fn is_dead(&self) -> bool {
+        (self.status == Status::Dead) && (self.velocity.y < 0.)
     }
 }
 
@@ -102,5 +101,19 @@ impl Platform {
 
     pub fn hitbox(&self) -> HitBox {
         HitBox::new(self.pos, self.width, self.height)
+    }
+}
+
+pub struct Particle {
+    pub pos: Vector2,
+    pub vel: Vector2,
+    pub life: f32,
+    pub color: Color,
+}
+
+impl Particle {
+    pub fn update(&mut self, dt: f32) {
+        self.pos += self.vel * dt;
+        self.life -= dt * 2.0; // Fade with time
     }
 }

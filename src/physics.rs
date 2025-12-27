@@ -1,10 +1,11 @@
-// use crate::constants::*;
+use crate::constants::*;
 use raylib::prelude::*;
 
 pub struct HitBox {
     pub rect: Rectangle,
 }
 
+#[allow(unused)]
 impl HitBox {
     pub fn new(pos: Vector2, width: f32, height: f32) -> Self {
         let rect = rrect(pos.x, pos.y, width, height);
@@ -15,9 +16,13 @@ impl HitBox {
         self.rect.check_collision_recs(other)
     }
 
-    // pub fn is_off_screen(&self) -> bool {
-    //     self.pos.y > WINDOW_H || self.pos.x < 0. || self.pos.x > WINDOW_W
-    // }
+    pub fn overlaps_circle(&self, circle_pos: Vector2, radius: f32) -> bool {
+        self.rect.check_collision_circle_rec(circle_pos, radius)
+    }
+
+    pub fn is_off_screen(&self) -> bool {
+        self.rect.y < 0. || self.rect.y > WINDOW_H || self.rect.x < 0. || self.rect.x > WINDOW_W
+    }
 
     pub fn centered_on(pos: Vector2, width: f32, height: f32) -> Rectangle {
         Rectangle {
