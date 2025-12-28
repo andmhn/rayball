@@ -1,9 +1,32 @@
-use crate::components::{Ball, Platform};
+use crate::components::{Ball, Brick, Platform};
 use crate::constants::{VELOCITY, WINDOW_H, WINDOW_W};
 use crate::game::GameEvent;
 use raylib::prelude::*;
 
-pub fn resolve_ball_collision(ball: &mut Ball, platform: &Platform) -> Option<GameEvent> {
+pub fn resolve_ball_collisions(
+    ball: &mut Ball,
+    platform: &Platform,
+    bricks: &mut [Brick],
+) -> Vec<GameEvent> {
+    let mut events = vec![];
+    events.extend(handle_brick_collisions(bricks, ball));
+    events.extend(handle_platform_collisions(ball, platform));
+    events
+}
+
+pub fn update_ball_position(ball: &mut Ball, dt: f32) -> Vec<GameEvent> {
+    ball.pos += ball.velocity * dt;
+    let mut events = vec![];
+    events.extend(handle_wall_collisions(ball));
+    events
+}
+
+pub fn snap_ball_to_platform(ball: &mut Ball, platform: &Platform) {
+    ball.pos.x = center_x(platform.bounds());
+    ball.pos.y = platform.pos.y - ball.radius;
+}
+
+fn handle_platform_collisions(ball: &mut Ball, platform: &Platform) -> Option<GameEvent> {
     let p_bound = platform.bounds();
     let touching = p_bound.check_collision_circle_rec(ball.pos, ball.radius);
     if touching && ball.velocity.y > 0.0 {
@@ -19,18 +42,19 @@ pub fn resolve_ball_collision(ball: &mut Ball, platform: &Platform) -> Option<Ga
     None
 }
 
-pub fn update_ball_position(ball: &mut Ball, dt: f32) -> Vec<GameEvent> {
-    ball.pos += ball.velocity * dt;
-    let mut events = Vec::new();
-    if let Some(event) = handle_wall_collisions(ball) {
-        events.push(event);
-    }
-    events
-}
+fn handle_brick_collisions(bricks: &mut [Brick], ball: &mut Ball) -> Option<GameEvent> {
+    for brick in bricks.iter_mut().filter(|b| b.active) {
+        if brick
+            .bound()
+            .check_collision_circle_rec(ball.pos, ball.radius)
+        {
+            brick.die();
+            ball.velocity.y *= -1.0;
 
-pub fn snap_ball_to_platform(ball: &mut Ball, platform: &Platform) {
-    ball.pos.x = center_x(platform.bounds());
-    ball.pos.y = platform.pos.y - ball.radius;
+            return Some(GameEvent::BrickCollision(ball.pos));
+        }
+    }
+    None
 }
 
 fn handle_wall_collisions(ball: &mut Ball) -> Option<GameEvent> {

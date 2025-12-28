@@ -9,26 +9,36 @@ pub fn draw_game_ui(
     lives: u8,
     ball_status: &Status,
     dead_balls_pos: &Vec<Vector2>,
+    won: bool,
 ) {
     draw_ball_lives(d, dead_balls_pos, lives);
-    draw_info_text(d, ball_status, lives);
+    draw_info_text(d, ball_status, lives, won);
 }
 
 pub fn draw_world(
     d: &mut RaylibDrawHandle,
     ball: &Ball,
+    bricks: &[Brick],
     platform: &Platform,
     particles: &[Particle],
 ) {
     platform_draw(d, platform);
-    ball_draw(ball, d);
-
+    ball_draw(d, ball);
+    for b in bricks.iter().filter(|b| b.active) {
+        brick_draw(d, b);
+    }
     for p in particles {
         particle_draw(d, p);
     }
 }
 
-fn ball_draw(ball: &Ball, d: &mut RaylibDrawHandle) {
+fn brick_draw(d: &mut RaylibDrawHandle, brick: &Brick) {
+    let b = brick;
+    d.draw_rectangle_v(b.pos, rvec2(b.width, b.height), b.color);
+    d.draw_rectangle_lines_ex(b.bound(), 2., Color::WHITE.alpha(0.3));
+}
+
+fn ball_draw(d: &mut RaylibDrawHandle, ball: &Ball) {
     if ball.status != Status::Dead {
         d.draw_circle_v(ball.pos, ball.radius, Color::YELLOW);
     }
@@ -46,7 +56,13 @@ fn particle_draw(d: &mut RaylibDrawHandle, particle: &Particle) {
     d.draw_circle_v(particle.pos, 2., particle.color.alpha(particle.life));
 }
 
-fn draw_info_text(d: &mut RaylibDrawHandle, ball_status: &Status, lives: u8) {
+fn draw_info_text(d: &mut RaylibDrawHandle, ball_status: &Status, lives: u8, won: bool) {
+    let restart_text = "PRESS SPACE TO RESTART";
+    if won {
+        draw_text_center_x(d, "GAME CLEARED", INFO_POS_Y - 100, 40, Color::LIME);
+        draw_text_center_x(d, restart_text, INFO_POS_Y, 20, Color::GRAY);
+        return;
+    }
     match ball_status {
         Status::Start => {
             draw_text_center_x(d, "PRESS SPACE TO LAUNCH", INFO_POS_Y, 20, Color::GRAY)
@@ -54,8 +70,7 @@ fn draw_info_text(d: &mut RaylibDrawHandle, ball_status: &Status, lives: u8) {
         Status::Dead => {
             if lives == 0 {
                 draw_text_center_x(d, "GAME OVER", INFO_POS_Y - 100, 40, Color::RED);
-                let text = "PRESS SPACE TO RESTART";
-                draw_text_center_x(d, text, INFO_POS_Y, 20, Color::GRAY);
+                draw_text_center_x(d, restart_text, INFO_POS_Y, 20, Color::GRAY);
             }
         }
         _ => {}

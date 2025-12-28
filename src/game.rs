@@ -1,18 +1,20 @@
 use crate::components::*;
 use crate::constants::MAX_LIVES;
-use crate::systems;
 use crate::systems::audio::SoundManager;
 use crate::systems::physics;
+use crate::systems::render;
 use raylib::prelude::*;
 
 pub enum GameEvent {
     BallHitWall,
     BallDropped,
     BallHitPlatform(Vector2),
+    BrickCollision(Vector2),
 }
 
 pub struct Game<'a> {
     ball: Ball,
+    bricks: Vec<Brick>,
     platform: Platform,
     particles: Vec<Particle>,
     sounds: SoundManager<'a>,
@@ -24,6 +26,7 @@ impl<'a> Game<'a> {
     pub fn new(sounds: SoundManager<'a>) -> Self {
         let mut game = Self {
             ball: Ball::new(),
+            bricks: Brick::generate(),
             platform: Platform::new(),
             particles: Vec::new(),
             sounds,
@@ -52,8 +55,9 @@ impl<'a> Game<'a> {
     }
 
     pub fn draw(&self, d: &mut RaylibDrawHandle) {
-        systems::render::draw_world(d, &self.ball, &self.platform, &self.particles);
-        systems::render::draw_game_ui(d, self.lives, &self.ball.status, &self.dead_balls_pos);
+        render::draw_world(d, &self.ball, &self.bricks, &self.platform, &self.particles);
+        let won = !self.bricks.iter().any(|b| b.active);
+        render::draw_game_ui(d, self.lives, &self.ball.status, &self.dead_balls_pos, won);
     }
 
     fn move_ball(&mut self, rl: &RaylibHandle, dt: f32) {
@@ -68,10 +72,11 @@ impl<'a> Game<'a> {
             Status::Running => {
                 let mut events = Vec::new();
                 events.extend(physics::update_ball_position(&mut self.ball, dt));
-                if let Some(event) = physics::resolve_ball_collision(&mut self.ball, &self.platform)
-                {
-                    events.push(event);
-                }
+                events.extend(physics::resolve_ball_collisions(
+                    &mut self.ball,
+                    &self.platform,
+                    &mut self.bricks,
+                ));
                 for event in events {
                     self.handle_event(event);
                 }
@@ -98,7 +103,7 @@ impl<'a> Game<'a> {
                 self.lives -= 1;
                 if self.lives > 0 {
                     self.ball.reset();
-                    self.ball.pos = systems::render::get_ball_lives_pos(self.lives);
+                    self.ball.pos = render::get_ball_lives_pos(self.lives);
                     self.ball.status = Status::Spawning;
                     self.sounds.play_transition();
                 }
@@ -106,7 +111,7 @@ impl<'a> Game<'a> {
             GameEvent::BallHitWall => {
                 self.sounds.play_bounce();
             }
-            GameEvent::BallHitPlatform(hit_point) => {
+            GameEvent::BallHitPlatform(hit_point) | GameEvent::BrickCollision(hit_point) => {
                 self.particles.extend(Particle::spawn_particles(hit_point));
                 self.sounds.play_bounce();
             }
@@ -114,7 +119,7 @@ impl<'a> Game<'a> {
     }
 
     fn sync_ball_position(&mut self) {
-        crate::systems::physics::snap_ball_to_platform(&mut self.ball, &self.platform);
+        physics::snap_ball_to_platform(&mut self.ball, &self.platform);
     }
 
     fn reset_game(&mut self) {
@@ -122,5 +127,8 @@ impl<'a> Game<'a> {
         self.dead_balls_pos = Vec::new();
         self.ball.reset();
         self.sync_ball_position();
+        for b in &mut self.bricks {
+            b.active = true;
+        }
     }
 }
