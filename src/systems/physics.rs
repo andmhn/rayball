@@ -30,7 +30,8 @@ fn handle_platform_collisions(ball: &mut Ball, platform: &Platform) -> Option<Ga
     let p_bound = platform.bounds();
     let touching = p_bound.check_collision_circle_rec(ball.pos, ball.radius);
     if touching && ball.velocity.y > 0.0 {
-        ball.velocity *= -1.;
+        ball.velocity.y *= -1.0;
+        ball.pos.y = platform.pos.y - ball.radius;
 
         // Calculate the bounce angle
         let diff = ball.pos.x - center_x(p_bound);
@@ -44,13 +45,23 @@ fn handle_platform_collisions(ball: &mut Ball, platform: &Platform) -> Option<Ga
 
 fn handle_brick_collisions(bricks: &mut [Brick], ball: &mut Ball) -> Option<GameEvent> {
     for brick in bricks.iter_mut().filter(|b| b.active) {
-        if brick
-            .bound()
-            .check_collision_circle_rec(ball.pos, ball.radius)
-        {
-            brick.die();
-            ball.velocity.y *= -1.0;
+        let bound = brick.bound();
+        if bound.check_collision_circle_rec(ball.pos, ball.radius) {
+            let hitting_from_below = ball.velocity.y < 0.0 && ball.pos.y > bound.y + bound.height;
+            let hitting_from_above = ball.velocity.y > 0.0 && ball.pos.y < bound.y;
 
+            let hitting_from_left = ball.velocity.x > 0.0 && ball.pos.x < bound.x;
+            let hitting_from_right = ball.velocity.x < 0.0 && ball.pos.x > bound.x + bound.width;
+
+            if hitting_from_left || hitting_from_right {
+                ball.velocity.x *= -1.0;
+            } else if hitting_from_below || hitting_from_above {
+                ball.velocity.y *= -1.0;
+            } else {
+                ball.velocity.y *= -1.0; // FALLBACK
+            }
+
+            brick.die();
             return Some(GameEvent::BrickCollision(ball.pos));
         }
     }
