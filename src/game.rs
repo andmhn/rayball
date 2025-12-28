@@ -81,6 +81,13 @@ impl<'a> Game<'a> {
                     self.reset_game();
                 }
             }
+            Status::Spawning => {
+                if physics::transition_ball(&mut self.ball, &self.platform, dt) {
+                    return; // ball is still spawning
+                }
+                self.ball.status = Status::Start;
+                self.sync_ball_position();
+            }
         }
     }
 
@@ -91,8 +98,9 @@ impl<'a> Game<'a> {
                 self.lives -= 1;
                 if self.lives > 0 {
                     self.ball.reset();
-                    self.sync_ball_position();
-                    self.sounds.play_drop();
+                    self.ball.pos = systems::render::get_ball_lives_pos(self.lives);
+                    self.ball.status = Status::Spawning;
+                    self.sounds.play_transition();
                 }
             }
             GameEvent::BallHitWall => {
@@ -113,6 +121,6 @@ impl<'a> Game<'a> {
         self.lives = MAX_LIVES;
         self.dead_balls_pos = Vec::new();
         self.ball.reset();
-        physics::snap_ball_to_platform(&mut self.ball, &self.platform);
+        self.sync_ball_position();
     }
 }

@@ -3,6 +3,7 @@ use raylib::math::Vector2;
 
 #[derive(PartialEq)]
 pub enum Status {
+    Spawning,
     Start,
     Running,
     Dead,

@@ -65,3 +65,16 @@ fn handle_wall_collisions(ball: &mut Ball) -> Option<GameEvent> {
 pub fn center_x(rect: Rectangle) -> f32 {
     rect.x + (rect.width / 2.0)
 }
+
+/// returns false if transition is done
+pub fn transition_ball(ball: &mut Ball, platform: &Platform, dt: f32) -> bool {
+    let destination = Vector2 {
+        x: center_x(platform.bounds()),
+        y: platform.pos.y - ball.radius,
+    };
+    if ball.pos.distance_to(destination) > 0.5 {
+        ball.pos = ball.pos.lerp(destination, dt * 10.);
+        return true;
+    }
+    false
+}

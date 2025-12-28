@@ -62,18 +62,23 @@ fn draw_info_text(d: &mut RaylibDrawHandle, ball_status: &Status, lives: u8) {
     }
 }
 
+const MARGIN: f32 = 30.;
+const SPACING: f32 = BALL_RADIUS * 2.5;
+
+pub fn get_ball_lives_pos(i: u8) -> Vector2 {
+    Vector2 {
+        x: MARGIN + ((i as f32 - 1.) * SPACING),
+        y: MARGIN,
+    }
+}
+
 fn draw_ball_lives(d: &mut RaylibDrawHandle, dead_balls_pos: &Vec<Vector2>, lives: u8) {
     for pos in dead_balls_pos {
         d.draw_circle_v(pos, BALL_RADIUS, Color::RAYWHITE.alpha(0.2));
     }
 
-    let spacing = BALL_RADIUS * 2.5;
-    let margin = 30.;
     for i in 1..lives {
-        let pos = Vector2 {
-            x: margin + ((i as f32 - 1.) * spacing),
-            y: margin,
-        };
+        let pos = get_ball_lives_pos(i);
         d.draw_circle_v(pos, BALL_RADIUS, Color::RAYWHITE.alpha(0.2));
     }
 }
