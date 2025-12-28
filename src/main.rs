@@ -1,11 +1,12 @@
 mod components;
 mod constants;
 mod game;
-mod physics;
+mod systems;
 
 use constants::*;
-use game::{Game, SoundManager};
+use game::Game;
 use raylib::prelude::*;
+use systems::audio::SoundManager;
 
 fn main() {
     let (mut rl, thread) = raylib::init()
