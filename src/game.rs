@@ -19,7 +19,8 @@ pub struct Game<'a> {
     particles: Vec<Particle>,
     sounds: SoundManager<'a>,
     lives: u8,
-    dead_balls_pos: Vec<Vector2>,
+    death_pos: Vec<Vector2>,
+    won: bool,
 }
 
 impl<'a> Game<'a> {
@@ -31,7 +32,8 @@ impl<'a> Game<'a> {
             particles: Vec::new(),
             sounds,
             lives: MAX_LIVES,
-            dead_balls_pos: Vec::new(),
+            death_pos: Vec::new(),
+            won: false,
         };
 
         game.sync_ball_position();
@@ -40,7 +42,11 @@ impl<'a> Game<'a> {
 
     pub fn update(&mut self, rl: &RaylibHandle) {
         let dt = rl.get_frame_time();
-
+        self.won = !self.bricks.iter().any(|b| b.active);
+        if self.won && rl.is_key_pressed(KeyboardKey::KEY_SPACE) {
+            self.reset_game();
+            return;
+        }
         if rl.is_key_down(KeyboardKey::KEY_LEFT) {
             self.platform.move_left(dt);
         }
@@ -56,8 +62,7 @@ impl<'a> Game<'a> {
 
     pub fn draw(&self, d: &mut RaylibDrawHandle) {
         render::draw_world(d, &self.ball, &self.bricks, &self.platform, &self.particles);
-        let won = !self.bricks.iter().any(|b| b.active);
-        render::draw_game_ui(d, self.lives, &self.ball.status, &self.dead_balls_pos, won);
+        render::draw_game_ui(d, self.lives, &self.ball.status, &self.death_pos, self.won);
     }
 
     fn move_ball(&mut self, rl: &RaylibHandle, dt: f32) {
@@ -99,7 +104,7 @@ impl<'a> Game<'a> {
     fn handle_event(&mut self, event: GameEvent) {
         match event {
             GameEvent::BallDropped => {
-                self.dead_balls_pos.push(self.ball.pos);
+                self.death_pos.push(self.ball.pos);
                 self.lives -= 1;
                 if self.lives > 0 {
                     self.ball.reset();
@@ -124,8 +129,9 @@ impl<'a> Game<'a> {
 
     fn reset_game(&mut self) {
         self.lives = MAX_LIVES;
-        self.dead_balls_pos = Vec::new();
+        self.death_pos = Vec::new();
         self.ball.reset();
+        self.platform = Platform::new();
         self.sync_ball_position();
         for b in &mut self.bricks {
             b.active = true;
