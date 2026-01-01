@@ -1,4 +1,4 @@
-use crate::components::{Ball, Brick, Platform};
+use crate::components::{Ball, Brick, Platform,particle};
 use crate::constants::VELOCITY;
 use crate::game::GameEvent;
 use macroquad::prelude::*;
@@ -52,8 +52,8 @@ fn handle_brick_collisions(bricks: &mut [Brick], ball: &mut Ball) -> Option<Game
     for brick in bricks.iter_mut().filter(|b| b.active) {
         let bound = brick.bound();
         if circle_rect_collision(ball.pos, ball.radius, bound) {
-            let _hitting_from_below = ball.velocity.y < 0.0 && ball.pos.y > bound.y + bound.h;
-            let _hitting_from_above = ball.velocity.y > 0.0 && ball.pos.y < bound.y;
+            let hitting_from_below = ball.velocity.y < 0.0 && ball.pos.y > bound.y + bound.h;
+            // let _hitting_from_above = ball.velocity.y > 0.0 && ball.pos.y < bound.y;
 
             let hitting_from_left = ball.velocity.x > 0.0 && ball.pos.x < bound.x;
             let hitting_from_right = ball.velocity.x < 0.0 && ball.pos.x > bound.x + bound.w;
@@ -65,7 +65,17 @@ fn handle_brick_collisions(bricks: &mut [Brick], ball: &mut Ball) -> Option<Game
             }
 
             brick.die();
-            return Some(GameEvent::BrickCollision(ball.pos));
+            
+            let direction = if hitting_from_left {
+                particle::Direction::Left
+            } else if hitting_from_right {
+                particle::Direction::Right
+            } else if hitting_from_below {
+                particle::Direction::Down
+            } else {
+                particle::Direction::Up
+            };
+            return Some(GameEvent::BrickCollision(ball.pos, direction));
         }
     }
     None

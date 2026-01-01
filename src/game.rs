@@ -1,3 +1,4 @@
+use crate::components::particle::Direction;
 use crate::components::*;
 use crate::constants::MAX_LIVES;
 use crate::systems::audio::SoundManager;
@@ -9,7 +10,7 @@ pub enum GameEvent {
     BallHitWall,
     BallDropped,
     BallHitPlatform(Vec2),
-    BrickCollision(Vec2),
+    BrickCollision(Vec2, Direction),
 }
 
 pub struct Game {
@@ -50,7 +51,6 @@ impl Game {
             return;
         }
 
-        // Changed KeyboardKey::KEY_LEFT -> KeyCode::Left
         if is_key_down(KeyCode::Left) {
             self.platform.move_left(dt);
         }
@@ -120,8 +120,12 @@ impl Game {
             GameEvent::BallHitWall => {
                 self.sounds.play_bounce();
             }
-            GameEvent::BallHitPlatform(hit_point) | GameEvent::BrickCollision(hit_point) => {
-                self.particles.extend(Particle::spawn_particles(hit_point));
+            GameEvent::BallHitPlatform(hit_point) => {
+                self.particles.extend(Particle::spawn_particles(hit_point, particle::Direction::Up));
+                self.sounds.play_bounce();
+            }
+            GameEvent::BrickCollision(hit_point, direction) => {
+                self.particles.extend(Particle::spawn_particles(hit_point, direction));
                 self.sounds.play_bounce();
             }
         }

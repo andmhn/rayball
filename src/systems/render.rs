@@ -1,4 +1,4 @@
-use crate::{components::*, constants::BALL_RADIUS};
+use crate::{DEFAULT_FONT, components::*, constants::BALL_RADIUS};
 use macroquad::prelude::*;
 
 pub fn draw_game_ui(lives: u8, ball_status: &Status, dead_balls_pos: &Vec<Vec2>, won: bool) {
@@ -56,16 +56,16 @@ fn draw_info_text(ball_status: &Status, lives: u8, won: bool) {
     let info_pos_y = screen_height() - 200.;
     let restart_text = "PRESS SPACE TO RESTART";
     if won {
-        draw_text_center_x("GAME CLEARED", info_pos_y - 100., 40., LIME);
-        draw_text_center_x(restart_text, info_pos_y, 20., GRAY);
+        draw_text_center_x("GAME CLEARED", info_pos_y - 100., 40, LIME);
+        draw_text_center_x(restart_text, info_pos_y, 20, GRAY);
         return;
     }
     match ball_status {
-        Status::Start => draw_text_center_x("PRESS SPACE TO LAUNCH", info_pos_y as f32, 20., GRAY),
+        Status::Start => draw_text_center_x("PRESS SPACE TO LAUNCH", info_pos_y as f32, 20, GRAY),
         Status::Dead => {
             if lives == 0 {
-                draw_text_center_x("GAME OVER", info_pos_y - 100., 40., RED);
-                draw_text_center_x(restart_text, info_pos_y, 20., GRAY);
+                draw_text_center_x("GAME OVER", info_pos_y - 100., 40, RED);
+                draw_text_center_x(restart_text, info_pos_y, 20, GRAY);
             }
         }
         _ => {}
@@ -91,8 +91,20 @@ fn draw_ball_lives(dead_balls_pos: &Vec<Vec2>, lives: u8) {
     }
 }
 
-fn draw_text_center_x(text: &str, y: f32, font_size: f32, color: Color) {
-    let center = get_text_center(text, None, font_size as u16, 1.0, 0.0);
+fn draw_text_center_x(text: &str, y: f32, font_size: u16, color: Color) {
+    let font = DEFAULT_FONT.get().expect("Font not loaded");
+    let center = get_text_center(text, Some(font), font_size as u16, 1.0, 0.0);
     let x = (screen_width() / 2.) - center.x;
-    draw_text(text, x, y, font_size, color);
+    draw_text_global(text, x, y, font_size, color);
+}
+
+pub fn draw_text_global(text: &str, x: f32, y: f32, font_size: u16, color: Color) {
+    let font = DEFAULT_FONT.get().expect("Font not loaded");
+    let params = TextParams {
+        font: Some(font),
+        font_size,
+        color,
+        ..Default::default()
+    };
+    draw_text_ex(text, x, y, params);
 }

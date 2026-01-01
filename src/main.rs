@@ -5,14 +5,21 @@ mod constants;
 mod game;
 mod systems;
 
+use std::sync::OnceLock;
+
 use constants::*;
 use game::Game;
 use macroquad::prelude::*;
 use systems::audio::SoundManager;
 
+static DEFAULT_FONT: OnceLock<Font> = OnceLock::new();
+
 #[macroquad::main(window_conf)]
 async fn main() {
     init_logger();
+
+    let font = load_ttf_font_from_bytes(include_bytes!("../assets/Cousine-Regular.ttf"));
+    DEFAULT_FONT.set(font.unwrap()).unwrap();
 
     let sounds = SoundManager::new();
     let mut game = Game::new(sounds.await);
@@ -36,8 +43,8 @@ async fn main() {
 fn window_conf() -> Conf {
     Conf {
         window_title: "rayball".to_owned(),
-        window_width: 1200,
-        window_height: 800,
+        window_width: 1100,
+        window_height: 600,
         high_dpi: true,
         fullscreen: false,
         window_resizable: false,
