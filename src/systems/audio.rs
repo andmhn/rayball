@@ -1,33 +1,33 @@
-use raylib::prelude::{RaylibAudio, Sound};
+use macroquad::audio::{Sound, load_sound_from_bytes, play_sound_once};
 
-pub struct SoundManager<'a> {
-    pub transition_sound: Option<Sound<'a>>,
-    pub bounce_sound: Option<Sound<'a>>,
+pub struct SoundManager {
+    pub transition_sound: Option<Sound>,
+    pub bounce_sound: Option<Sound>,
 }
 
-impl<'a> SoundManager<'a> {
-    pub fn new(audio_handle: Option<&'a RaylibAudio>) -> Self {
-        match audio_handle {
-            Some(h) => Self {
-                transition_sound: h.new_sound("assets/transition.wav").ok(),
-                bounce_sound: h.new_sound("assets/bounce.wav").ok(),
-            },
-            None => Self {
-                transition_sound: None,
-                bounce_sound: None,
-            },
+impl SoundManager {
+    pub async fn new() -> Self {
+        let transition_data = include_bytes!("../../assets/transition.wav");
+        let bounce_data = include_bytes!("../../assets/bounce.wav");
+
+        let transition = load_sound_from_bytes(transition_data).await.ok();
+        let bounce = load_sound_from_bytes(bounce_data).await.ok();
+
+        Self {
+            transition_sound: transition,
+            bounce_sound: bounce,
         }
     }
 
     pub fn play_transition(&self) {
         if let Some(s) = &self.transition_sound {
-            s.play();
+            play_sound_once(s);
         }
     }
 
     pub fn play_bounce(&self) {
         if let Some(s) = &self.bounce_sound {
-            s.play();
+            play_sound_once(s);
         }
     }
 }

@@ -3,28 +3,28 @@ use crate::constants::MAX_LIVES;
 use crate::systems::audio::SoundManager;
 use crate::systems::physics;
 use crate::systems::render;
-use raylib::prelude::*;
+use macroquad::prelude::*;
 
 pub enum GameEvent {
     BallHitWall,
     BallDropped,
-    BallHitPlatform(Vector2),
-    BrickCollision(Vector2),
+    BallHitPlatform(Vec2),
+    BrickCollision(Vec2),
 }
 
-pub struct Game<'a> {
+pub struct Game {
     ball: Ball,
     bricks: Vec<Brick>,
     platform: Platform,
     particles: Vec<Particle>,
-    sounds: SoundManager<'a>,
+    sounds: SoundManager,
     lives: u8,
-    death_pos: Vec<Vector2>,
+    death_pos: Vec<Vec2>,
     won: bool,
 }
 
-impl<'a> Game<'a> {
-    pub fn new(sounds: SoundManager<'a>) -> Self {
+impl Game {
+    pub fn new(sounds: SoundManager) -> Self {
         let mut game = Self {
             ball: Ball::new(),
             bricks: Brick::generate(),
@@ -40,37 +40,41 @@ impl<'a> Game<'a> {
         game
     }
 
-    pub fn update(&mut self, rl: &RaylibHandle) {
-        let dt = rl.get_frame_time();
+    pub fn update(&mut self) {
+        let dt = get_frame_time();
+
         self.won = !self.bricks.iter().any(|b| b.active);
-        if self.won && rl.is_key_pressed(KeyboardKey::KEY_SPACE) {
+
+        if self.won && is_key_pressed(KeyCode::Space) {
             self.reset_game();
             return;
         }
-        if rl.is_key_down(KeyboardKey::KEY_LEFT) {
+
+        // Changed KeyboardKey::KEY_LEFT -> KeyCode::Left
+        if is_key_down(KeyCode::Left) {
             self.platform.move_left(dt);
         }
-        if rl.is_key_down(KeyboardKey::KEY_RIGHT) {
+        if is_key_down(KeyCode::Right) {
             self.platform.move_right(dt);
         }
 
-        self.move_ball(rl, dt);
+        self.move_ball(dt);
 
         self.particles.iter_mut().for_each(|p| p.update(dt));
         self.particles.retain(|p| p.life > 0.0);
     }
 
-    pub fn draw(&self, d: &mut RaylibDrawHandle) {
-        render::draw_world(d, &self.ball, &self.bricks, &self.platform, &self.particles);
-        render::draw_game_ui(d, self.lives, &self.ball.status, &self.death_pos, self.won);
+    pub fn draw(&self) {
+        render::draw_world(&self.ball, &self.bricks, &self.platform, &self.particles);
+        render::draw_game_ui(self.lives, &self.ball.status, &self.death_pos, self.won);
     }
 
-    fn move_ball(&mut self, rl: &RaylibHandle, dt: f32) {
+    fn move_ball(&mut self, dt: f32) {
         match self.ball.status {
             Status::Start => {
                 physics::snap_ball_to_platform(&mut self.ball, &self.platform);
 
-                if rl.is_key_pressed(KeyboardKey::KEY_SPACE) {
+                if is_key_pressed(KeyCode::Space) {
                     self.ball.launch();
                 }
             }
@@ -87,13 +91,13 @@ impl<'a> Game<'a> {
                 }
             }
             Status::Dead => {
-                if rl.is_key_pressed(KeyboardKey::KEY_SPACE) && self.lives == 0 {
+                if is_key_pressed(KeyCode::Space) && self.lives == 0 {
                     self.reset_game();
                 }
             }
             Status::Spawning => {
                 if physics::transition_ball(&mut self.ball, &self.platform, dt) {
-                    return; // ball is still spawning
+                    return;
                 }
                 self.ball.status = Status::Start;
                 self.sync_ball_position();

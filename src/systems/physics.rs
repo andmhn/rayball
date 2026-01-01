@@ -1,7 +1,7 @@
 use crate::components::{Ball, Brick, Platform};
-use crate::constants::{VELOCITY, WINDOW_H, WINDOW_W};
+use crate::constants::VELOCITY;
 use crate::game::GameEvent;
-use raylib::prelude::*;
+use macroquad::prelude::*;
 
 pub fn resolve_ball_collisions(
     ball: &mut Ball,
@@ -9,15 +9,21 @@ pub fn resolve_ball_collisions(
     bricks: &mut [Brick],
 ) -> Vec<GameEvent> {
     let mut events = vec![];
-    events.extend(handle_brick_collisions(bricks, ball));
-    events.extend(handle_platform_collisions(ball, platform));
+    if let Some(e) = handle_brick_collisions(bricks, ball) {
+        events.push(e);
+    }
+    if let Some(e) = handle_platform_collisions(ball, platform) {
+        events.push(e);
+    }
     events
 }
 
 pub fn update_ball_position(ball: &mut Ball, dt: f32) -> Vec<GameEvent> {
     ball.pos += ball.velocity * dt;
     let mut events = vec![];
-    events.extend(handle_wall_collisions(ball));
+    if let Some(e) = handle_wall_collisions(ball) {
+        events.push(e);
+    }
     events
 }
 
@@ -28,15 +34,14 @@ pub fn snap_ball_to_platform(ball: &mut Ball, platform: &Platform) {
 
 fn handle_platform_collisions(ball: &mut Ball, platform: &Platform) -> Option<GameEvent> {
     let p_bound = platform.bounds();
-    let touching = p_bound.check_collision_circle_rec(ball.pos, ball.radius);
-    if touching && ball.velocity.y > 0.0 {
+
+    if circle_rect_collision(ball.pos, ball.radius, p_bound) && ball.velocity.y > 0.0 {
         ball.velocity.y *= -1.0;
         ball.pos.y = platform.pos.y - ball.radius;
 
-        // Calculate the bounce angle
         let diff = ball.pos.x - center_x(p_bound);
-        ball.velocity.x = (diff / (p_bound.width / 2.0)) * VELOCITY;
-        let hit_point = rvec2(ball.pos.x, platform.pos.y);
+        ball.velocity.x = (diff / (p_bound.w / 2.0)) * VELOCITY;
+        let hit_point = vec2(ball.pos.x, platform.pos.y);
 
         return Some(GameEvent::BallHitPlatform(hit_point));
     }
@@ -46,19 +51,17 @@ fn handle_platform_collisions(ball: &mut Ball, platform: &Platform) -> Option<Ga
 fn handle_brick_collisions(bricks: &mut [Brick], ball: &mut Ball) -> Option<GameEvent> {
     for brick in bricks.iter_mut().filter(|b| b.active) {
         let bound = brick.bound();
-        if bound.check_collision_circle_rec(ball.pos, ball.radius) {
-            let hitting_from_below = ball.velocity.y < 0.0 && ball.pos.y > bound.y + bound.height;
-            let hitting_from_above = ball.velocity.y > 0.0 && ball.pos.y < bound.y;
+        if circle_rect_collision(ball.pos, ball.radius, bound) {
+            let _hitting_from_below = ball.velocity.y < 0.0 && ball.pos.y > bound.y + bound.h;
+            let _hitting_from_above = ball.velocity.y > 0.0 && ball.pos.y < bound.y;
 
             let hitting_from_left = ball.velocity.x > 0.0 && ball.pos.x < bound.x;
-            let hitting_from_right = ball.velocity.x < 0.0 && ball.pos.x > bound.x + bound.width;
+            let hitting_from_right = ball.velocity.x < 0.0 && ball.pos.x > bound.x + bound.w;
 
             if hitting_from_left || hitting_from_right {
                 ball.velocity.x *= -1.0;
-            } else if hitting_from_below || hitting_from_above {
-                ball.velocity.y *= -1.0;
             } else {
-                ball.velocity.y *= -1.0; // FALLBACK
+                ball.velocity.y *= -1.0;
             }
 
             brick.die();
@@ -69,47 +72,56 @@ fn handle_brick_collisions(bricks: &mut [Brick], ball: &mut Ball) -> Option<Game
 }
 
 fn handle_wall_collisions(ball: &mut Ball) -> Option<GameEvent> {
-    let touched_down = (ball.pos.y + ball.radius >= WINDOW_H) && (ball.velocity.y > 0.0);
+    let touched_down = (ball.pos.y + ball.radius >= screen_height()) && (ball.velocity.y > 0.0);
     if touched_down {
-        ball.pos.y = WINDOW_H - ball.radius;
+        ball.pos.y = screen_height() - ball.radius;
         ball.die();
         return Some(GameEvent::BallDropped);
     }
-    let touched_up = ball.pos.y < ball.radius && ball.velocity.y < 0.0;
-    if touched_up {
+
+    let mut hit_wall = false;
+    if ball.pos.y < ball.radius && ball.velocity.y < 0.0 {
         ball.pos.y = ball.radius;
         ball.velocity.y *= -1.0;
+        hit_wall = true;
     }
-    let touched_right = ball.pos.x + ball.radius >= WINDOW_W && ball.velocity.x > 0.0;
-    if touched_right {
-        ball.pos.x = WINDOW_W - ball.radius;
+    if ball.pos.x + ball.radius >= screen_width() && ball.velocity.x > 0.0 {
+        ball.pos.x = screen_width() - ball.radius;
         ball.velocity.x *= -1.0;
+        hit_wall = true;
     }
-    let touched_left = ball.pos.x < ball.radius && ball.velocity.x < 0.0;
-    if touched_left {
+    if ball.pos.x < ball.radius && ball.velocity.x < 0.0 {
         ball.pos.x = ball.radius;
         ball.velocity.x *= -1.0;
+        hit_wall = true;
     }
 
-    if touched_up || touched_left || touched_right {
+    if hit_wall {
         return Some(GameEvent::BallHitWall);
     }
     None
 }
 
-pub fn center_x(rect: Rectangle) -> f32 {
-    rect.x + (rect.width / 2.0)
+pub fn center_x(rect: Rect) -> f32 {
+    rect.x + (rect.w / 2.0)
 }
 
-/// returns false if transition is done
 pub fn transition_ball(ball: &mut Ball, platform: &Platform, dt: f32) -> bool {
-    let destination = Vector2 {
-        x: center_x(platform.bounds()),
-        y: platform.pos.y - ball.radius,
-    };
-    if ball.pos.distance_to(destination) > 0.5 {
+    let destination = vec2(center_x(platform.bounds()), platform.pos.y - ball.radius);
+    if ball.pos.distance(destination) > 0.5 {
         ball.pos = ball.pos.lerp(destination, dt * 10.);
         return true;
     }
     false
+}
+
+// Helper function because Macroquad doesn't have a built-in Circle-to-Rect check
+fn circle_rect_collision(center: Vec2, radius: f32, rect: Rect) -> bool {
+    let closest_x = center.x.clamp(rect.x, rect.x + rect.w);
+    let closest_y = center.y.clamp(rect.y, rect.y + rect.h);
+
+    let distance_x = center.x - closest_x;
+    let distance_y = center.y - closest_y;
+
+    (distance_x * distance_x) + (distance_y * distance_y) < (radius * radius)
 }

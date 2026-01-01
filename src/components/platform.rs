@@ -1,8 +1,8 @@
 use crate::constants::*;
-use raylib::math::{Rectangle, Vector2, rrect};
+use macroquad::prelude::*;
 
 pub struct Platform {
-    pub pos: Vector2,
+    pub pos: Vec2,
     pub width: f32,
     pub height: f32,
 }
@@ -11,9 +11,9 @@ impl Platform {
     pub fn new() -> Self {
         let width = PLATFORM_W;
         let height = PLATFORM_H;
-        let pos = Vector2 {
-            x: (WINDOW_W - width) / 2.,
-            y: WINDOW_H - height,
+        let pos = Vec2 {
+            x: (screen_width() - width) / 2.,
+            y: screen_height() - height,
         };
         Platform { pos, width, height }
     }
@@ -27,12 +27,12 @@ impl Platform {
 
     pub fn move_right(&mut self, dt: f32) {
         self.pos.x += 1000. * dt;
-        if self.pos.x + self.width > WINDOW_W {
-            self.pos.x = WINDOW_W - self.width;
+        if self.pos.x + self.width > screen_width() {
+            self.pos.x = screen_width() - self.width;
         }
     }
 
-    pub fn bounds(&self) -> Rectangle {
-        rrect(self.pos.x, self.pos.y, self.width, self.height)
+    pub fn bounds(&self) -> Rect {
+        Rect::new(self.pos.x, self.pos.y, self.width, self.height)
     }
 }

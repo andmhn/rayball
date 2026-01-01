@@ -1,3 +1,5 @@
+#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
+
 mod components;
 mod constants;
 mod game;
@@ -5,27 +7,74 @@ mod systems;
 
 use constants::*;
 use game::Game;
-use raylib::prelude::*;
+use macroquad::prelude::*;
 use systems::audio::SoundManager;
 
-fn main() {
-    let (mut rl, thread) = raylib::init()
-        .size(WINDOW_W as i32, WINDOW_H as i32)
-        .title("rayball")
-        .build();
+#[macroquad::main(window_conf)]
+async fn main() {
+    init_logger();
 
-    let audio = RaylibAudio::init_audio_device();
-    let sounds = SoundManager::new(audio.as_ref().ok());
+    let sounds = SoundManager::new();
+    let mut game = Game::new(sounds.await);
+    log::info!("Game started successfully");
 
-    let mut game = Game::new(sounds);
+    loop {
+        let start_frame = get_time();
 
-    rl.set_target_fps(120);
+        game.update();
+        clear_background(BG_COLOR);
+        game.draw();
 
-    while !rl.window_should_close() {
-        game.update(&rl);
+        if is_key_down(KeyCode::Escape) || is_quit_requested() {
+            break;
+        }
+        next_frame().await;
+        limit_framerate(start_frame);
+    }
+}
 
-        let mut d = rl.begin_drawing(&thread);
-        d.clear_background(BG_COLOR);
-        game.draw(&mut d);
+fn window_conf() -> Conf {
+    Conf {
+        window_title: "rayball".to_owned(),
+        window_width: 1200,
+        window_height: 800,
+        high_dpi: true,
+        fullscreen: false,
+        window_resizable: false,
+        ..Default::default()
+    }
+}
+
+const FRAME_TIME_TARGET: f64 = 1.0 / 120.; // FPS
+
+fn limit_framerate(start_frame: f64) {
+    #[cfg(not(target_arch = "wasm32"))]
+    {
+        let elapsed = get_time() - start_frame;
+        if elapsed < FRAME_TIME_TARGET {
+            let sleep_time = (FRAME_TIME_TARGET - elapsed) * 1000.0;
+            std::thread::sleep(std::time::Duration::from_millis(sleep_time as u64));
+        }
+    }
+}
+
+fn init_logger() {
+    #[cfg(not(target_arch = "wasm32"))]
+    {
+        use simplelog::*;
+        let mut loggers: Vec<Box<dyn SharedLogger>> = vec![];
+
+        loggers.push(TermLogger::new(
+            LevelFilter::Info,
+            Config::default(),
+            TerminalMode::Mixed,
+            ColorChoice::Auto,
+        ));
+
+        if let Ok(file) = std::fs::File::create("rayball.log") {
+            loggers.push(WriteLogger::new(LevelFilter::Info, Config::default(), file));
+        }
+
+        CombinedLogger::init(loggers).unwrap();
     }
 }

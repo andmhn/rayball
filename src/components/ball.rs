@@ -1,5 +1,5 @@
 use crate::constants::{BALL_RADIUS, VELOCITY};
-use raylib::math::Vector2;
+use macroquad::prelude::*;
 
 #[derive(PartialEq)]
 pub enum Status {
@@ -10,8 +10,8 @@ pub enum Status {
 }
 
 pub struct Ball {
-    pub pos: Vector2,
-    pub velocity: Vector2,
+    pub pos: Vec2,
+    pub velocity: Vec2,
     pub status: Status,
     pub radius: f32,
 }
@@ -19,8 +19,8 @@ pub struct Ball {
 impl Ball {
     pub fn new() -> Self {
         Ball {
-            pos: Vector2::zero(),
-            velocity: Vector2::zero(),
+            pos: Vec2::ZERO,
+            velocity: Vec2::ZERO,
             status: Status::Start,
             radius: BALL_RADIUS,
         }
@@ -29,14 +29,14 @@ impl Ball {
     pub fn die(&mut self) {
         if self.status != Status::Dead {
             self.status = Status::Dead;
-            self.velocity = Vector2::zero();
+            self.velocity = Vec2::ZERO;
         }
     }
 
     pub fn reset(&mut self) {
         self.status = Status::Start;
-        self.velocity = Vector2::zero();
-        self.pos = Vector2::zero();
+        self.velocity = Vec2::ZERO;
+        self.pos = Vec2::ZERO;
     }
 
     pub fn launch(&mut self) {
