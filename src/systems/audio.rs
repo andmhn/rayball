@@ -1,8 +1,10 @@
 use macroquad::audio::{Sound, load_sound_from_bytes, play_sound_once};
+use macroquad::prelude::get_time;
 
 pub struct SoundManager {
     pub transition_sound: Option<Sound>,
     pub bounce_sound: Option<Sound>,
+    last_bounce_time: f64,
 }
 
 impl SoundManager {
@@ -16,6 +18,7 @@ impl SoundManager {
         Self {
             transition_sound: transition,
             bounce_sound: bounce,
+            last_bounce_time: 0.,
         }
     }
 
@@ -25,9 +28,16 @@ impl SoundManager {
         }
     }
 
-    pub fn play_bounce(&self) {
+    pub fn play_bounce(&mut self) {
+        let now = get_time();
+
+        if now - self.last_bounce_time < 0.1 {
+            return; // 100 ms break (avoids loud thud)
+        }
+
         if let Some(s) = &self.bounce_sound {
             play_sound_once(s);
+            self.last_bounce_time = now;
         }
     }
 }
