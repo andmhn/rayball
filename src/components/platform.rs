@@ -18,6 +18,11 @@ impl Platform {
         Platform { pos, width, height }
     }
 
+    pub fn move_delta(&mut self, delta_x: f32) {
+        self.pos.x += delta_x;
+        self.pos.x = self.pos.x.clamp(0., screen_width() - self.width);
+    }
+
     pub fn move_left(&mut self, dt: f32) {
         self.pos.x -= 1000. * dt;
         if self.pos.x < 0. {

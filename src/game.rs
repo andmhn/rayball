@@ -22,6 +22,8 @@ pub struct Game {
     lives: u8,
     death_pos: Vec<Vec2>,
     won: bool,
+    last_touch_pos: Option<Vec2>,
+    start_touch_pos: Option<Vec2>,
 }
 
 impl Game {
@@ -35,6 +37,8 @@ impl Game {
             lives: MAX_LIVES,
             death_pos: Vec::new(),
             won: false,
+            last_touch_pos: None,
+            start_touch_pos: None,
         };
 
         game.sync_ball_position();
@@ -51,25 +55,56 @@ impl Game {
             return;
         }
 
-        for touch in touches() {
-            if touch.position.x < screen_width() / 2. {
-                self.platform.move_left(dt);
-            } else {
-                self.platform.move_right(dt);
-            }
-        }
+        self.handle_keypress(dt);
+        self.handle_touches();
 
+        self.move_ball(dt);
+
+        self.particles.iter_mut().for_each(|p| p.update(dt));
+        self.particles.retain(|p| p.life > 0.0);
+    }
+
+    fn handle_keypress(&mut self, dt: f32) {
         if is_key_down(KeyCode::Left) {
             self.platform.move_left(dt);
         }
         if is_key_down(KeyCode::Right) {
             self.platform.move_right(dt);
         }
+        if is_key_pressed(KeyCode::Space) {
+            self.handle_launch_input();
+        }
+    }
 
-        self.move_ball(dt);
+    fn handle_touches(&mut self) {
+        if let Some(touch) = touches().first() {
+            match touch.phase {
+                TouchPhase::Started => {
+                    self.last_touch_pos = Some(touch.position);
+                    self.start_touch_pos = Some(touch.position);
+                }
+                TouchPhase::Moved => {
+                    if let Some(last_pos) = self.last_touch_pos {
+                        let delta_x = touch.position.x - last_pos.x;
+                        self.platform.move_delta(delta_x);
+                    }
+                    self.last_touch_pos = Some(touch.position);
+                }
+                TouchPhase::Ended => {
+                    // Check if this was a "Tap" (finger didn't move much)
+                    if let Some(start_pos) = self.start_touch_pos {
+                        let distance = (touch.position - start_pos).length();
 
-        self.particles.iter_mut().for_each(|p| p.update(dt));
-        self.particles.retain(|p| p.life > 0.0);
+                        if distance < 10.0 {
+                            self.handle_launch_input();
+                        }
+                    }
+                    self.last_touch_pos = None;
+                    self.start_touch_pos = None;
+                }
+                _ => {}
+            }
+        }
     }
 
     pub fn draw(&self) {
@@ -81,10 +116,6 @@ impl Game {
         match self.ball.status {
             Status::Start => {
                 physics::snap_ball_to_platform(&mut self.ball, &self.platform);
-
-                if action_pressed() {
-                    self.ball.launch();
-                }
             }
             Status::Running => {
                 let mut events = Vec::new();
@@ -98,11 +129,7 @@ impl Game {
                     self.handle_event(event);
                 }
             }
-            Status::Dead => {
-                if action_pressed() && self.lives == 0 {
-                    self.reset_game();
-                }
-            }
+            Status::Dead => {}
             Status::Spawning => {
                 if physics::transition_ball(&mut self.ball, &self.platform, dt) {
                     return;
@@ -155,6 +182,14 @@ impl Game {
         self.sync_ball_position();
         for b in &mut self.bricks {
             b.active = true;
+        }
+    }
+
+    fn handle_launch_input(&mut self) {
+        match self.ball.status {
+            Status::Start => self.ball.launch(),
+            Status::Dead if self.lives == 0 => self.reset_game(),
+            _ => {}
         }
     }
 }
