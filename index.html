@@ -4,9 +4,22 @@
         <meta charset="utf-8" />
         <title>Ray Ball</title>
         <style>
-            html,
-            body,
+            * {
+                margin: 0;
+                padding: 0;
+                box-sizing: border-box;
+            }
+            body {
+                background-color: #24273a;
+                width: 100vw;
+                height: 100vh;
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                overflow: hidden;
+            }
             canvas {
+                border: 2px solid #17191d;
                 margin: 0px;
                 padding: 0px;
                 width: 100%;
@@ -15,6 +28,19 @@
                 position: absolute;
                 background: black;
                 z-index: 0;
+                display: block;
+                object-fit: contain;
+                width: 100%;
+                height: auto;
+                max-width: 800px;
+                max-height: 600px;
+                aspect-ratio: 800 / 600;
+                image-rendering: pixelated;
+            }
+            canvas:focus {
+                outline: none;
+                border: 2px solid #555;
+                box-shadow: 0 0 10px rgba(255, 255, 255, 0.3);
             }
         </style>
     </head>
