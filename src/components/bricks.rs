@@ -33,18 +33,19 @@ impl Brick {
         Rect::new(self.pos.x, self.pos.y, self.width, self.height)
     }
 
-
     pub fn generate() -> Vec<Brick> {
         // TODO: Generate by Levels, maybe parse strings
 
-        let max_row = (screen_width() / (WIDTH + SPACING)) as u8 - 1;
-        Brick::generate_simple(4, max_row)
+        let max_col = (screen_width() / (WIDTH + SPACING)) as u8;
+        Brick::generate_simple(4, max_col)
     }
 
     fn generate_simple(rows: u8, cols: u8) -> Vec<Brick> {
         let mut bricks = Vec::new();
         let start_y = 100.0;
-        let start_x = (screen_width() - (cols as f32 * (WIDTH + SPACING))) / 2.0;
+
+        let total_width = (cols as f32 * WIDTH) + ((cols - 1) as f32 * SPACING);
+        let start_x = (screen_width() - total_width) / 2.0;
 
         for r in 0..rows {
             for c in 0..cols {
@@ -60,4 +61,3 @@ impl Brick {
         bricks
     }
 }
-
