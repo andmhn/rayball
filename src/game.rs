@@ -46,9 +46,17 @@ impl Game {
 
         self.won = !self.bricks.iter().any(|b| b.active);
 
-        if self.won && is_key_pressed(KeyCode::Space) {
+        if self.won && action_pressed() {
             self.reset_game();
             return;
+        }
+
+        for touch in touches() {
+            if touch.position.x < screen_width() / 2. {
+                self.platform.move_left(dt);
+            } else {
+                self.platform.move_right(dt);
+            }
         }
 
         if is_key_down(KeyCode::Left) {
@@ -74,7 +82,7 @@ impl Game {
             Status::Start => {
                 physics::snap_ball_to_platform(&mut self.ball, &self.platform);
 
-                if is_key_pressed(KeyCode::Space) {
+                if action_pressed() {
                     self.ball.launch();
                 }
             }
@@ -91,7 +99,7 @@ impl Game {
                 }
             }
             Status::Dead => {
-                if is_key_pressed(KeyCode::Space) && self.lives == 0 {
+                if action_pressed() && self.lives == 0 {
                     self.reset_game();
                 }
             }
@@ -121,11 +129,15 @@ impl Game {
                 self.sounds.play_bounce();
             }
             GameEvent::BallHitPlatform(hit_point) => {
-                self.particles.extend(Particle::spawn_particles(hit_point, particle::Direction::Up));
+                self.particles.extend(Particle::spawn_particles(
+                    hit_point,
+                    particle::Direction::Up,
+                ));
                 self.sounds.play_bounce();
             }
             GameEvent::BrickCollision(hit_point, direction) => {
-                self.particles.extend(Particle::spawn_particles(hit_point, direction));
+                self.particles
+                    .extend(Particle::spawn_particles(hit_point, direction));
                 self.sounds.play_bounce();
             }
         }
@@ -145,4 +157,8 @@ impl Game {
             b.active = true;
         }
     }
+}
+
+fn action_pressed() -> bool {
+    is_key_pressed(KeyCode::Space) || touches().iter().any(|t| t.phase == TouchPhase::Started)
 }

@@ -54,14 +54,14 @@ fn particle_draw(particle: &Particle) {
 
 fn draw_info_text(ball_status: &Status, lives: u8, won: bool) {
     let info_pos_y = screen_height() - 200.;
-    let restart_text = "PRESS SPACE TO RESTART";
+    let restart_text = "TOUCH / PRESS SPACE TO RESTART";
     if won {
         draw_text_center_x("GAME CLEARED", info_pos_y - 100., 40, LIME);
         draw_text_center_x(restart_text, info_pos_y, 20, GRAY);
         return;
     }
     match ball_status {
-        Status::Start => draw_text_center_x("PRESS SPACE TO LAUNCH", info_pos_y as f32, 20, GRAY),
+        Status::Start => draw_text_center_x("TOUCH / PRESS SPACE TO LAUNCH", info_pos_y as f32, 20, GRAY),
         Status::Dead => {
             if lives == 0 {
                 draw_text_center_x("GAME OVER", info_pos_y - 100., 40, RED);
