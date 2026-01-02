@@ -50,11 +50,6 @@ impl Game {
 
         self.won = !self.bricks.iter().any(|b| b.active);
 
-        if self.won && action_pressed() {
-            self.reset_game();
-            return;
-        }
-
         self.handle_keypress(dt);
         self.handle_touches();
 
@@ -96,6 +91,10 @@ impl Game {
                         let distance = (touch.position - start_pos).length();
 
                         if distance < 10.0 {
+                            if self.won {
+                                self.reset_game();
+                                return;
+                            }
                             self.handle_launch_input();
                         }
                     }
@@ -186,14 +185,14 @@ impl Game {
     }
 
     fn handle_launch_input(&mut self) {
+        if self.won {
+            self.reset_game();
+            return;
+        }
         match self.ball.status {
             Status::Start => self.ball.launch(),
             Status::Dead if self.lives == 0 => self.reset_game(),
             _ => {}
         }
     }
-}
-
-fn action_pressed() -> bool {
-    is_key_pressed(KeyCode::Space) || touches().iter().any(|t| t.phase == TouchPhase::Started)
 }
