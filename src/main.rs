@@ -43,7 +43,7 @@ async fn main() {
 fn window_conf() -> Conf {
     Conf {
         window_title: "rayball".to_owned(),
-        window_width: 1100,
+        window_width: 800,
         window_height: 600,
         high_dpi: true,
         fullscreen: false,
