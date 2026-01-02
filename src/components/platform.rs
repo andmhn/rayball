@@ -9,7 +9,7 @@ pub struct Platform {
 
 impl Platform {
     pub fn new() -> Self {
-        let width = PLATFORM_W;
+        let width = screen_width() / 3.;
         let height = PLATFORM_H;
         let pos = Vec2 {
             x: (screen_width() - width) / 2.,
